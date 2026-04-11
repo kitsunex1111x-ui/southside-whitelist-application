@@ -1,11 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Debug environment variables
-console.log("SUPABASE_URL:", import.meta.env.VITE_SUPABASE_URL);
-console.log("SUPABASE_ANON_KEY exists:", !!import.meta.env.VITE_SUPABASE_ANON_KEY);
+// Get environment variables with fallbacks
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://xylaoshplmsevlxzizrd.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_p1y618_iSDWyTg5g75o_Pg_efLkfqIC';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+// Debug environment variables
+console.log("SUPABASE_URL:", supabaseUrl);
+console.log("SUPABASE_ANON_KEY exists:", !!supabaseAnonKey);
+console.log("SUPABASE_ANON_KEY length:", supabaseAnonKey?.length);
 
 // Handle both old and new Supabase key formats
 if (!supabaseUrl || !supabaseAnonKey) {
