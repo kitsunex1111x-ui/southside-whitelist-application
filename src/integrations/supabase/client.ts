@@ -7,4 +7,9 @@ console.log("SUPABASE_ANON_KEY exists:", !!import.meta.env.VITE_SUPABASE_ANON_KE
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
+// Handle both old and new Supabase key formats
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Supabase URL and Anon Key are required. Please check your environment variables.');
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
