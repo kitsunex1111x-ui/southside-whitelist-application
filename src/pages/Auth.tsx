@@ -17,7 +17,7 @@ const Auth = () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'discord',
       options: {
-        redirectTo: 'http://localhost:3000/auth/callback',
+        redirectTo: 'https://southside-whitelist-application.vercel.app/auth/callback',
       },
     });
     if (error) {
@@ -43,7 +43,7 @@ const Auth = () => {
         password,
         options: {
           data: { username },
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: 'https://southside-whitelist-application.vercel.app',
         },
       });
       if (error) {

@@ -9,7 +9,8 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       console.log("=== AuthCallback Started ===");
-      console.log("Current URL:", window.location.href);
+      console.log("CALLBACK ROUTE v2 loaded", window.location.href);
+      console.log("Current origin:", window.location.origin);
       
       try {
         const urlParams = new URLSearchParams(window.location.search);
