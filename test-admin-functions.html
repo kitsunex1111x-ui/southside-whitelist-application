@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Admin Functions - Southside RP</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d1b2d 100%); 
+            color: white; 
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .section {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+        }
+        .btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 8px 4px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(255,107,107,0.3); }
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+        .success { background: #10b981; }
+        .error { background: #ef4444; }
+        .warning { background: #f59e0b; }
+        .info { background: #3b82f6; }
+        .log {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        h1, h2 { background: linear-gradient(45deg, #ff6b6b, #ee5a24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    </style>
+</head>
+<body>
+    <h1>Test Admin Functions</h1>
+    
+    <div class="section">
+        <h2>Authentication Check</h2>
+        <div id="auth-status" class="status info">Checking authentication...</div>
+        <button class="btn" onclick="checkAuth()">Check User Auth</button>
+        <button class="btn" onclick="checkAdminAccess()">Check Admin Access</button>
+    </div>
+
+    <div class="section">
+        <h2>Applications Test</h2>
+        <div id="apps-status" class="status info">Testing applications access...</div>
+        <button class="btn" onclick="testApplicationsFetch()">Test Fetch Applications</button>
+        <button class="btn" onclick="testApplicationUpdate()">Test Update Application</button>
+        <button class="btn" onclick="testAdminLogs()">Test Admin Logs</button>
+    </div>
+
+    <div class="section">
+        <h2>RLS Policy Test</h2>
+        <div id="rls-status" class="status info">Testing RLS policies...</div>
+        <button class="btn" onclick="testRLSPolicies()">Test RLS Policies</button>
+    </div>
+
+    <div class="section">
+        <h2>Debug Log</h2>
+        <div id="debug-log" class="log">Initializing admin function test tool...</div>
+    </div>
+    
+    <script>
+        const supabaseUrl = 'https://xylaoshplmsevlxzizrd.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bGFvc2hwbG1zZXZseHppenJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NDQyMzYsImV4cCI6MjA1MTQyMDIzNn0.p1yL8kQx_8hKjN8q2Y3X4w5z6t7u8v9w0x1y2z3a4b';
+        const { createClient } = window.supabase;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        let currentUser = null;
+        let userRoles = [];
+        let testAppId = null;
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEl = document.getElementById('debug-log');
+            logEl.innerHTML += `<div style="color: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : type === 'warning' ? '#f59e0b' : '#60a5fa'}">[${timestamp}] ${message}</div>`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        function updateStatus(elementId, message, type = 'info') {
+            const el = document.getElementById(elementId);
+            if (el) {
+                el.textContent = message;
+                el.className = `status ${type}`;
+            }
+        }
+        
+        async function checkAuth() {
+            log('=== Checking Authentication ===');
+            
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (session) {
+                    currentUser = session.user;
+                    log(`User authenticated: ${session.user.email}`);
+                    log(`User ID: ${session.user.id}`);
+                    updateStatus('auth-status', 'User authenticated', 'success');
+                } else {
+                    log('No user session found');
+                    updateStatus('auth-status', 'No user authenticated', 'warning');
+                }
+                
+                if (error) {
+                    log(`Auth error: ${error.message}`, 'error');
+                    updateStatus('auth-status', 'Auth error', 'error');
+                }
+                
+            } catch (err) {
+                log(`Auth check error: ${err.message}`, 'error');
+                updateStatus('auth-status', 'Auth check failed', 'error');
+            }
+        }
+        
+        async function checkAdminAccess() {
+            log('=== Checking Admin Access ===');
+            
+            if (!currentUser) {
+                log('No user to check admin access for', 'warning');
+                updateStatus('auth-status', 'No user to check admin access', 'warning');
+                return;
+            }
+            
+            try {
+                const { data, error } = await supabase
+                    .from("user_roles")
+                    .select("role")
+                    .eq("user_id", currentUser.id);
+                
+                if (error) {
+                    log(`Roles error: ${error.message}`, 'error');
+                    updateStatus('auth-status', 'Roles error', 'error');
+                } else {
+                    userRoles = data?.map(r => r.role) ?? [];
+                    log(`User roles: ${userRoles.join(', ')}`);
+                    
+                    if (userRoles.includes('admin') || userRoles.includes('owner')) {
+                        log('Admin access confirmed');
+                        updateStatus('auth-status', 'Admin access confirmed', 'success');
+                    } else {
+                        log('No admin access');
+                        updateStatus('auth-status', 'No admin access', 'error');
+                    }
+                }
+                
+            } catch (err) {
+                log(`Admin check error: ${err.message}`, 'error');
+                updateStatus('auth-status', 'Admin check failed', 'error');
+            }
+        }
+        
+        async function testApplicationsFetch() {
+            log('=== Testing Applications Fetch ===');
+            
+            if (!currentUser) {
+                log('No user session', 'warning');
+                return;
+            }
+            
+            try {
+                const { data, error } = await supabase
+                    .from("applications")
+                    .select("*")
+                    .order("created_at", { ascending: false });
+                
+                if (error) {
+                    log(`Applications fetch error: ${error.message}`, 'error');
+                    log(`Error details: ${JSON.stringify(error, null, 2)}`, 'error');
+                    updateStatus('apps-status', 'Fetch failed', 'error');
+                } else {
+                    log(`Found ${data.length} applications`);
+                    if (data.length > 0) {
+                        testAppId = data[0].id;
+                        log(`Test app ID: ${testAppId}`);
+                        log(`Sample app: ${data[0].char_name} - ${data[0].status}`);
+                    }
+                    updateStatus('apps-status', `Found ${data.length} applications`, 'success');
+                }
+                
+            } catch (err) {
+                log(`Applications fetch error: ${err.message}`, 'error');
+                updateStatus('apps-status', 'Fetch failed', 'error');
+            }
+        }
+        
+        async function testApplicationUpdate() {
+            log('=== Testing Application Update ===');
+            
+            if (!testAppId) {
+                log('No test application ID available', 'warning');
+                updateStatus('apps-status', 'No test application', 'warning');
+                return;
+            }
+            
+            if (!userRoles.includes('admin') && !userRoles.includes('owner')) {
+                log('No admin access for update test', 'warning');
+                updateStatus('apps-status', 'No admin access', 'warning');
+                return;
+            }
+            
+            try {
+                const testStatus = 'pending';
+                const { data, error } = await supabase
+                    .from("applications")
+                    .update({ 
+                        status: testStatus, 
+                        reviewed_by: currentUser.id 
+                    })
+                    .eq("id", testAppId)
+                    .select();
+                
+                if (error) {
+                    log(`Application update error: ${error.message}`, 'error');
+                    log(`Error details: ${JSON.stringify(error, null, 2)}`, 'error');
+                    updateStatus('apps-status', 'Update failed', 'error');
+                } else {
+                    log(`Application updated successfully`);
+                    log(`Updated data: ${JSON.stringify(data, null, 2)}`);
+                    updateStatus('apps-status', 'Update successful', 'success');
+                }
+                
+            } catch (err) {
+                log(`Application update error: ${err.message}`, 'error');
+                updateStatus('apps-status', 'Update failed', 'error');
+            }
+        }
+        
+        async function testAdminLogs() {
+            log('=== Testing Admin Logs ===');
+            
+            if (!currentUser) {
+                log('No user session', 'warning');
+                return;
+            }
+            
+            try {
+                const { data, error } = await supabase
+                    .from("admin_logs")
+                    .select("*")
+                    .order("created_at", { ascending: false })
+                    .limit(5);
+                
+                if (error) {
+                    log(`Admin logs error: ${error.message}`, 'error');
+                    updateStatus('apps-status', 'Logs failed', 'error');
+                } else {
+                    log(`Found ${data.length} admin log entries`);
+                    updateStatus('apps-status', 'Logs test passed', 'success');
+                }
+                
+            } catch (err) {
+                log(`Admin logs error: ${err.message}`, 'error');
+                updateStatus('apps-status', 'Logs failed', 'error');
+            }
+        }
+        
+        async function testRLSPolicies() {
+            log('=== Testing RLS Policies ===');
+            
+            if (!currentUser) {
+                log('No user session for RLS test', 'warning');
+                updateStatus('rls-status', 'No user session', 'warning');
+                return;
+            }
+            
+            // Test applications table RLS
+            try {
+                const { data, error } = await supabase
+                    .from("applications")
+                    .select("*")
+                    .limit(1);
+                
+                if (error) {
+                    log(`Applications RLS error: ${error.message}`, 'error');
+                    if (error.message.includes('row-level security')) {
+                        log('RLS policy blocking access - check user roles', 'warning');
+                    }
+                    updateStatus('rls-status', 'RLS blocking access', 'error');
+                } else {
+                    log('Applications RLS allows access');
+                    updateStatus('rls-status', 'RLS allows access', 'success');
+                }
+                
+            } catch (err) {
+                log(`RLS test error: ${err.message}`, 'error');
+                updateStatus('rls-status', 'RLS test failed', 'error');
+            }
+        }
+        
+        // Initialize
+        window.addEventListener('load', () => {
+            log('Admin function test tool loaded');
+            checkAuth();
+        });
+    </script>
+</body>
+</html>

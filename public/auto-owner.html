@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auto Owner Setup</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background: #1a1a1a; 
+            color: white; 
+            text-align: center; 
+            padding: 50px;
+        }
+        .status { 
+            background: #333; 
+            padding: 20px; 
+            border-radius: 10px; 
+            margin: 20px 0;
+            max-width: 600px;
+        }
+        .success { background: #2d5a2d; }
+        .error { background: #5a2d2d; }
+        .loading { animation: pulse 1.5s infinite; }
+    </style>
+</head>
+<body>
+    <h1>👑 Automatic Owner Setup</h1>
+    <div id="status" class="status loading">Initializing...</div>
+    
+    <script>
+        // Initialize Supabase with your actual project credentials
+        const supabaseUrl = 'https://xylaoshplmsevlxzizrd.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bGFvc2hwbG1zZXZseHppenJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NDQyMzYsImV4cCI6MjA5MTQyMDIzNn0.p1yL8kQx_8hKjN8q2Y3X4w5z6t7u8v9w0x1y2z3a4b';
+        
+        // Create client
+        const { createClient } = window.supabase;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        const statusEl = document.getElementById('status');
+        
+        async function autoSetupOwner() {
+            try {
+                updateStatus('Connecting to Supabase...', 'status');
+                
+                // Wait a moment for client to initialize
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                updateStatus('Checking authentication...', 'status');
+                
+                // Get current session
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (error) {
+                    updateStatus(`Auth error: ${error.message}`, 'error');
+                    return;
+                }
+                
+                if (!session) {
+                    updateStatus('No active session found. Please log in first.', 'error');
+                    setTimeout(() => {
+                        window.location.href = '/auth';
+                    }, 3000);
+                    return;
+                }
+                
+                updateStatus(`Found user: ${session.user.email}`, 'status');
+                
+                // Add owner role
+                updateStatus('Adding owner role...', 'status loading');
+                const { data: roleData, error: roleError } = await supabase
+                    .from('user_roles')
+                    .upsert({
+                        user_id: session.user.id,
+                        role: 'owner'
+                    })
+                    .select();
+                
+                if (roleError) {
+                    updateStatus(`Error adding role: ${roleError.message}`, 'error');
+                    return;
+                }
+                
+                updateStatus(`✅ SUCCESS! Owner role added for ${session.user.email}!`, 'success');
+                
+                // Verify
+                const { data: verifyData } = await supabase
+                    .from('user_roles')
+                    .select('*')
+                    .eq('user_id', session.user.id);
+                
+                console.log('User roles:', verifyData);
+                
+                // Success message and redirect
+                setTimeout(() => {
+                    updateStatus(`
+                        🎉 SUCCESS! Owner role added!<br><br>
+                        User: ${session.user.email}<br><br>
+                        Redirecting to dashboard...<br><br>
+                        <small>You'll see "Owner" link in the navbar!</small>
+                    `, 'success');
+                    
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 3000);
+                }, 2000);
+                
+            } catch (error) {
+                updateStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        function updateStatus(message, className) {
+            statusEl.textContent = message;
+            statusEl.className = `status ${className || ''}`;
+        }
+        
+        // Auto-run when page loads
+        window.addEventListener('load', () => {
+            setTimeout(autoSetupOwner, 500);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Application Workflow</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d1b2d 100%); 
+            color: white; 
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .section {
+            background: rgba(255,255,255,255,0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+        }
+        .btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 8px 4px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(255,107,107,0.3); }
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+        .success { background: #10b981; }
+        .error { background: #ef4444; }
+        .warning { background: #f59e0b; }
+        .info { background: #3b82f6; }
+        .log {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        h1, h2 { background: linear-gradient(45deg, #ff6b6b, #ee5a24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            background: rgba(255,255,255,255,0.1);
+            border: 1px solid #444;
+            color: white;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Application Workflow Test</h1>
+    
+    <div class="section">
+        <h2>1. Check Current User</h2>
+        <div id="user-status" class="status info">Checking...</div>
+        <button class="btn" onclick="checkUser()">Check User</button>
+    </div>
+    
+    <div class="section">
+        <h2>2. Submit Test Application</h2>
+        <div id="submit-status" class="status info">Ready...</div>
+        <input type="text" id="test-name" placeholder="Test Name" value="Test User">
+        <input type="text" id="test-discord" placeholder="Discord ID" value="123456789012345678">
+        <input type="number" id="test-age" placeholder="Age" value="25">
+        <textarea id="test-rdm" placeholder="What is RDM?">Random Deathmatch is when players kill other players without any valid roleplay reason.</textarea>
+        <textarea id="test-vdm" placeholder="What is VDM?">Vehicle Deathmatch is when players use vehicles to kill other players without valid roleplay reason.</textarea>
+        <textarea id="test-metagaming" placeholder="What is MetaGaming?">MetaGaming is when players use out-of-character information to influence their in-character actions.</textarea>
+        <textarea id="test-powergaming" placeholder="What is PowerGaming?">PowerGaming is when players force actions on other players or perform unrealistic actions.</textarea>
+        <input type="text" id="test-charname" placeholder="Character Name" value="Test Character">
+        <textarea id="test-backstory" placeholder="Backstory">Test character backstory for testing purposes.</textarea>
+        <textarea id="test-traits" placeholder="Traits">Brave, Loyal, Smart</textarea>
+        <button class="btn" onclick="submitTestApplication()">Submit Test Application</button>
+    </div>
+    
+    <div class="section">
+        <h2>3. Check Admin Dashboard</h2>
+        <div id="admin-status" class="status info">Ready...</div>
+        <button class="btn" onclick="checkApplications()">Check Applications</button>
+    </div>
+    
+    <div class="section">
+        <h2>Debug Log</h2>
+        <div id="debug-log" class="log">Ready for testing...</div>
+    </div>
+    
+    <script>
+        const supabaseUrl = 'https://xylaoshplmsevlxzizrd.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bGFvc2hwbG1zZXZseHppenJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NDQyMzYsImV4cCI6MjA1MTQyMDIzNn0.p1yL8kQx_8hKjN8q2Y3X4w5z6t7u8v9w0x1y2z3a4b';
+        const { createClient } = window.supabase;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        let currentUser = null;
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEl = document.getElementById('debug-log');
+            logEl.innerHTML += `<div style="color: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : type === 'warning' ? '#f59e0b' : '#60a5fa'}">[${timestamp}] ${message}</div>`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        function updateStatus(elementId, message, type = 'info') {
+            const el = document.getElementById(elementId);
+            if (el) {
+                el.textContent = message;
+                el.className = `status ${type}`;
+            }
+        }
+        
+        async function checkUser() {
+            log('Checking current user...');
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (error) {
+                    log(`Auth error: ${error.message}`, 'error');
+                    updateStatus('user-status', `Error: ${error.message}`, 'error');
+                    return;
+                }
+                
+                if (!session) {
+                    log('No active session found', 'warning');
+                    updateStatus('user-status', 'Not logged in', 'warning');
+                    return;
+                }
+                
+                currentUser = session.user;
+                log(`User logged in: ${session.user.email}`, 'success');
+                log(`User ID: ${session.user.id}`, 'info');
+                updateStatus('user-status', `Logged in: ${session.user.email}`, 'success');
+                
+            } catch (error) {
+                log(`Check user error: ${error.message}`, 'error');
+                updateStatus('user-status', `Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function submitTestApplication() {
+            if (!currentUser) {
+                log('Please check user first', 'warning');
+                updateStatus('submit-status', 'Please check user first', 'warning');
+                return;
+            }
+            
+            log('Submitting test application...');
+            updateStatus('submit-status', 'Submitting...', 'info');
+            
+            try {
+                const submissionData = {
+                    user_id: currentUser.id,
+                    real_name: document.getElementById('test-name').value.trim(),
+                    discord: document.getElementById('test-discord').value.trim(),
+                    age: document.getElementById('test-age').value.trim(),
+                    rdm: document.getElementById('test-rdm').value.trim(),
+                    vdm: document.getElementById('test-vdm').value.trim(),
+                    metagaming: document.getElementById('test-metagaming').value.trim(),
+                    powergaming: document.getElementById('test-powergaming').value.trim(),
+                    char_name: document.getElementById('test-charname').value.trim(),
+                    backstory: document.getElementById('test-backstory').value.trim(),
+                    traits: document.getElementById('test-traits').value.trim(),
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                };
+                
+                log(`Submission data: ${JSON.stringify(submissionData, null, 2)}`, 'info');
+                
+                const { data: insertData, error } = await supabase.from("applications").insert(submissionData).select();
+                
+                if (error) {
+                    log(`Submission error: ${error.message}`, 'error');
+                    log(`Error details: ${JSON.stringify(error, null, 2)}`, 'error');
+                    updateStatus('submit-status', `Error: ${error.message}`, 'error');
+                } else {
+                    log(`Submission successful: ${JSON.stringify(insertData, null, 2)}`, 'success');
+                    updateStatus('submit-status', 'Application submitted successfully!', 'success');
+                    
+                    // Auto-check applications after submission
+                    setTimeout(checkApplications, 1000);
+                }
+                
+            } catch (error) {
+                log(`Submit error: ${error.message}`, 'error');
+                updateStatus('submit-status', `Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function checkApplications() {
+            log('Checking applications in admin dashboard...');
+            updateStatus('admin-status', 'Checking...', 'info');
+            
+            try {
+                const { data: applications, error } = await supabase
+                    .from("applications")
+                    .select("*")
+                    .order("created_at", { ascending: false });
+                
+                if (error) {
+                    log(`Applications check error: ${error.message}`, 'error');
+                    updateStatus('admin-status', `Error: ${error.message}`, 'error');
+                    return;
+                }
+                
+                log(`Found ${applications.length} applications`, 'info');
+                
+                if (applications.length === 0) {
+                    updateStatus('admin-status', 'No applications found', 'warning');
+                    log('No applications found in database', 'warning');
+                } else {
+                    updateStatus('admin-status', `Found ${applications.length} applications`, 'success');
+                    
+                    applications.forEach((app, index) => {
+                        log(`Application ${index + 1}:`, 'info');
+                        log(`  - Name: ${app.real_name}`, 'info');
+                        log(`  - Discord: ${app.discord}`, 'info');
+                        log(`  - Character: ${app.char_name}`, 'info');
+                        log(`  - Status: ${app.status}`, 'info');
+                        log(`  - Created: ${app.created_at}`, 'info');
+                        log(`  - User ID: ${app.user_id}`, 'info');
+                    });
+                    
+                    // Check if our test application is there
+                    const testApp = applications.find(app => app.real_name === 'Test User');
+                    if (testApp) {
+                        log('Test application found in admin dashboard!', 'success');
+                        updateStatus('admin-status', 'Test application found!', 'success');
+                    } else {
+                        log('Test application not found', 'warning');
+                    }
+                }
+                
+            } catch (error) {
+                log(`Check applications error: ${error.message}`, 'error');
+                updateStatus('admin-status', `Error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Auto-check user on load
+        window.addEventListener('load', () => {
+            log('Application workflow test loaded');
+            setTimeout(checkUser, 1000);
+        });
+    </script>
+</body>
+</html>

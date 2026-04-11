@@ -1,0 +1,27 @@
+-- COPY AND PASTE THIS INTO YOUR SUPABASE SQL EDITOR
+-- Go to: https://supabase.com/dashboard/project/xylaoshplmsevlxzizrd/sql
+-- Paste this SQL and click "Run"
+
+-- Step 1: Add admin_notes column to applications table
+ALTER TABLE public.applications 
+ADD COLUMN IF NOT EXISTS admin_notes TEXT;
+
+-- Step 2: Update RLS policies to allow admin access to admin_notes
+DROP POLICY IF EXISTS "Admins can update applications" ON public.applications;
+CREATE POLICY "Admins can update applications" ON public.applications 
+FOR UPDATE TO authenticated 
+USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'owner'))
+WITH CHECK (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'owner'));
+
+-- Step 3: Update the select policy to include admin_notes
+DROP POLICY IF EXISTS "Admins can view all applications" ON public.applications;
+CREATE POLICY "Admins can view all applications" ON public.applications 
+FOR SELECT TO authenticated 
+USING (auth.uid() = user_id OR has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'owner'));
+
+-- Step 4: Grant permission on admin_notes column to authenticated users
+GRANT SELECT (admin_notes) ON public.applications TO authenticated;
+GRANT UPDATE (admin_notes) ON public.applications TO authenticated;
+
+-- Step 5: Refresh the schema cache
+NOTIFY pgrst, 'reload schema';

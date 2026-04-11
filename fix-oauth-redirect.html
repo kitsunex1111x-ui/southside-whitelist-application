@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fix OAuth Redirect URLs - Southside RP</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d1b2d 100%); 
+            color: white; 
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .section {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+        }
+        .btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 8px 4px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(255,107,107,0.3); }
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+        .success { background: #10b981; }
+        .error { background: #ef4444; }
+        .warning { background: #f59e0b; }
+        .info { background: #3b82f6; }
+        .log {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        h1, h2 { background: linear-gradient(45deg, #ff6b6b, #ee5a24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .url-box {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+        }
+        .step {
+            border-left: 4px solid #ff6b6b;
+            padding-left: 20px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Fix OAuth Redirect URLs</h1>
+    
+    <div class="section">
+        <h2>Problem: OAuth Redirect URL Mismatch</h2>
+        <div id="error-status" class="status error">
+            Error: "both auth code and code verifier should be non-empty"
+        </div>
+        <p>This error means the OAuth redirect URL is not configured correctly in either Supabase or Google Cloud Console.</p>
+    </div>
+
+    <div class="section">
+        <h2>Required Redirect URLs</h2>
+        <div class="url-box">
+            <strong>Supabase Site URL:</strong><br>
+            http://localhost:3000
+        </div>
+        <div class="url-box">
+            <strong>Supabase Redirect URL:</strong><br>
+            https://xylaoshplmsevlxzizrd.supabase.co/auth/v1/callback
+        </div>
+        <div class="url-box">
+            <strong>Google Cloud Console Redirect URI:</strong><br>
+            https://xylaoshplmsevlxzizrd.supabase.co/auth/v1/callback
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Step 1: Fix Supabase Settings</h2>
+        <ol class="step">
+            <li>Go to <a href="https://supabase.com/dashboard/project/xylaoshplmsevlxzizrd/auth/providers" target="_blank" style="color: #ff6b6b;">Supabase Authentication Settings</a></li>
+            <li>Click on "Authentication" > "Providers" > "Google"</li>
+            <li>Update these settings:</li>
+            <ul>
+                <li><strong>Site URL:</strong> http://localhost:3000 (NOT https!)</li>
+                <li><strong>Redirect URLs:</strong> https://xylaoshplmsevlxzizrd.supabase.co/auth/v1/callback</li>
+                <li><strong>❌ IMPORTANT:</strong> Do NOT add http://localhost:3000/auth/callback to redirect list</li>
+            </ul>
+        </ol>
+        <button class="btn" onclick="window.open('https://supabase.com/dashboard/project/xylaoshplmsevlxzizrd/auth/providers', '_blank')">
+            Open Supabase OAuth Settings
+        </button>
+    </div>
+
+    <div class="section">
+        <h2>Step 2: Fix Google Cloud Console</h2>
+        <ol class="step">
+            <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color: #ff6b6b;">Google Cloud Console Credentials</a></li>
+            <li>Find your OAuth 2.0 Client ID for Southside RP</li>
+            <li>Click "Edit" or the pencil icon</li>
+            <li>Under "Authorized redirect URIs", add:</li>
+            <ul>
+                <li>https://xylaoshplmsevlxzizrd.supabase.co/auth/v1/callback</li>
+            </ul>
+            <li>Remove any incorrect redirect URIs (like localhost:3000/auth/callback)</li>
+            <li>Click "Save"</li>
+        </ol>
+        <button class="btn" onclick="window.open('https://console.cloud.google.com/apis/credentials', '_blank')">
+            Open Google Cloud Console
+        </button>
+    </div>
+
+    <div class="section">
+        <h2>Step 3: Test OAuth Flow</h2>
+        <div id="test-status" class="status info">Ready to test...</div>
+        <button class="btn" onclick="testOAuth()">Test Google OAuth</button>
+        <button class="btn" onclick="window.open('https://localhost:3000/auth', '_blank')">Open Auth Page</button>
+        <button class="btn" onclick="checkCurrentConfig()">Check Current Configuration</button>
+    </div>
+
+    <div class="section">
+        <h2>Common Issues & Solutions</h2>
+        <div class="step">
+            <h4>Issue: "both auth code and code verifier should be non-empty"</h4>
+            <p><strong>Cause:</strong> Redirect URI mismatch between Google and Supabase</p>
+            <p><strong>Fix:</strong> Ensure both use: https://xylaoshplmsevlxzizrd.supabase.co/auth/v1/callback</p>
+        </div>
+        <div class="step">
+            <h4>Issue: OAuth gets stuck on auth page</h4>
+            <p><strong>Cause:</strong> Missing or incorrect redirect URL configuration</p>
+            <p><strong>Fix:</strong> Check both Supabase and Google Cloud Console settings</p>
+        </div>
+        <div class="step">
+            <h4>Issue: "redirect_uri_mismatch" error</h4>
+            <p><strong>Cause:</strong> Google Cloud Console has wrong redirect URI</p>
+            <p><strong>Fix:</strong> Update Google OAuth client with correct URI</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Debug Log</h2>
+        <div id="debug-log" class="log">Ready for OAuth redirect URL fix...</div>
+    </div>
+    
+    <script>
+        const supabaseUrl = 'https://xylaoshplmsevlxzizrd.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bGFvc2hwbG1zZXZseHppenJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NDQyMzYsImV4cCI6MjA1MTQyMDIzNn0.p1yL8kQx_8hKjN8q2Y3X4w5z6t7u8v9w0x1y2z3a4b';
+        const { createClient } = window.supabase;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEl = document.getElementById('debug-log');
+            logEl.innerHTML += `<div style="color: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : type === 'warning' ? '#f59e0b' : '#60a5fa'}">[${timestamp}] ${message}</div>`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        function updateStatus(elementId, message, type = 'info') {
+            const el = document.getElementById(elementId);
+            if (el) {
+                el.textContent = message;
+                el.className = `status ${type}`;
+            }
+        }
+        
+        async function checkCurrentConfig() {
+            log('=== Checking OAuth Configuration ===');
+            
+            try {
+                // Check if we can get the current session
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (session) {
+                    log('Current session found', 'success');
+                    log(`User: ${session.user.email}`);
+                } else {
+                    log('No current session', 'info');
+                }
+                
+                log('Configuration check complete');
+                updateStatus('test-status', 'Configuration checked', 'success');
+                
+            } catch (err) {
+                log(`Configuration check error: ${err.message}`, 'error');
+                updateStatus('test-status', 'Configuration error', 'error');
+            }
+        }
+        
+        async function testOAuth() {
+            log('=== Testing Google OAuth ===');
+            updateStatus('test-status', 'Testing OAuth...', 'info');
+            
+            try {
+                const { error } = await supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: 'https://xylaoshplmsevlxzizrd.supabase.co/auth/v1/callback',
+                    },
+                });
+                
+                if (error) {
+                    log(`OAuth error: ${error.message}`, 'error');
+                    updateStatus('test-status', `Error: ${error.message}`, 'error');
+                    
+                    if (error.message.includes('provider is not enabled')) {
+                        log('Google provider not enabled in Supabase', 'warning');
+                        updateStatus('test-status', 'Google provider not enabled', 'warning');
+                    }
+                } else {
+                    log('OAuth login initiated', 'success');
+                    updateStatus('test-status', 'OAuth initiated - check popup', 'success');
+                }
+            } catch (err) {
+                log(`Test error: ${err.message}`, 'error');
+                updateStatus('test-status', `Error: ${err.message}`, 'error');
+            }
+        }
+        
+        window.addEventListener('load', () => {
+            log('OAuth redirect URL fix tool loaded');
+            log('Project: https://supabase.com/dashboard/project/xylaoshplmsevlxzizrd');
+            log('Required redirect URI: https://xylaoshplmsevlxzizrd.supabase.co/auth/v1/callback');
+        });
+    </script>
+</body>
+</html>

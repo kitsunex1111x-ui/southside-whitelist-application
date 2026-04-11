@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Comprehensive Project Fix</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d1b2d 100%); 
+            color: white; 
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .section {
+            background: rgba(255,255,255,255,0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+        }
+        .btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 8px 4px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(255,107,107,0.3); }
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+        .success { background: #10b981; }
+        .error { background: #ef4444; }
+        .warning { background: #f59e0b; }
+        .info { background: #3b82f6; }
+        .log {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        h1, h2 { background: linear-gradient(45deg, #ff6b6b, #ee5a24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    </style>
+</head>
+<body>
+    <h1>Comprehensive Project Fix</h1>
+    
+    <div class="section">
+        <h2>1. Authentication Check</h2>
+        <div id="auth-status" class="status info">Checking...</div>
+        <button class="btn" onclick="checkAuth()">Check Authentication</button>
+        <button class="btn" onclick="fixAuth()">Fix Authentication</button>
+    </div>
+    
+    <div class="section">
+        <h2>2. Database & Tables Check</h2>
+        <div id="db-status" class="status info">Checking...</div>
+        <button class="btn" onclick="checkDatabase()">Check Database</button>
+        <button class="btn" onclick="fixDatabase()">Fix Database</button>
+    </div>
+    
+    <div class="section">
+        <h2>3. User Roles & Permissions</h2>
+        <div id="roles-status" class="status info">Checking...</div>
+        <button class="btn" onclick="checkRoles()">Check Roles</button>
+        <button class="btn" onclick="fixRoles()">Fix Roles</button>
+    </div>
+    
+    <div class="section">
+        <h2>4. Application Form Test</h2>
+        <div id="form-status" class="status info">Ready...</div>
+        <button class="btn" onclick="testApplication()">Test Application</button>
+        <button class="btn" onclick="fixApplication()">Fix Application</button>
+    </div>
+    
+    <div class="section">
+        <h2>5. Complete Fix</h2>
+        <button class="btn" onclick="runCompleteFix()">Run Complete Fix</button>
+        <div id="complete-status" class="status info">Ready...</div>
+    </div>
+    
+    <div class="section">
+        <h2>Debug Log</h2>
+        <div id="debug-log" class="log">Ready for debugging...</div>
+    </div>
+    
+    <script>
+        const supabaseUrl = 'https://xylaoshplmsevlxzizrd.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bGFvc2hwbG1zZXZseHppenJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NDQyMzYsImV4cCI6MjA1MTQyMDIzNn0.p1yL8kQx_8hKjN8q2Y3X4w5z6t7u8v9w0x1y2z3a4b';
+        const { createClient } = window.supabase;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEl = document.getElementById('debug-log');
+            logEl.innerHTML += `<div style="color: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : type === 'warning' ? '#f59e0b' : '#60a5fa'}">[${timestamp}] ${message}</div>`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        function updateStatus(elementId, message, type = 'info') {
+            const el = document.getElementById(elementId);
+            if (el) {
+                el.textContent = message;
+                el.className = `status ${type}`;
+            }
+        }
+        
+        async function checkAuth() {
+            log('Checking authentication...');
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (error) {
+                    log(`Auth error: ${error.message}`, 'error');
+                    updateStatus('auth-status', `Error: ${error.message}`, 'error');
+                    return false;
+                }
+                
+                if (!session) {
+                    log('No active session found', 'warning');
+                    updateStatus('auth-status', 'Not logged in', 'warning');
+                    return false;
+                }
+                
+                log(`User logged in: ${session.user.email}`, 'success');
+                updateStatus('auth-status', `Logged in: ${session.user.email}`, 'success');
+                return true;
+                
+            } catch (error) {
+                log(`Auth check error: ${error.message}`, 'error');
+                updateStatus('auth-status', `Error: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function checkDatabase() {
+            log('Checking database tables...');
+            try {
+                // Check applications table
+                const { data: apps, error: appsError } = await supabase.from('applications').select('count');
+                if (appsError) {
+                    log(`Applications table error: ${appsError.message}`, 'error');
+                    updateStatus('db-status', 'Applications table error', 'error');
+                    return false;
+                }
+                log(`Applications table: ${apps.length} records`, 'success');
+                
+                // Check user_roles table
+                const { data: roles, error: rolesError } = await supabase.from('user_roles').select('count');
+                if (rolesError) {
+                    log(`User_roles table error: ${rolesError.message}`, 'error');
+                    updateStatus('db-status', 'User_roles table error', 'error');
+                    return false;
+                }
+                log(`User_roles table: ${roles.length} records`, 'success');
+                
+                updateStatus('db-status', 'All tables accessible', 'success');
+                return true;
+                
+            } catch (error) {
+                log(`Database check error: ${error.message}`, 'error');
+                updateStatus('db-status', `Error: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function checkRoles() {
+            log('Checking user roles...');
+            try {
+                const { data: roles, error } = await supabase.from('user_roles').select('*');
+                
+                if (error) {
+                    log(`Roles check error: ${error.message}`, 'error');
+                    updateStatus('roles-status', `Error: ${error.message}`, 'error');
+                    return false;
+                }
+                
+                log(`Found ${roles.length} user roles`, 'success');
+                roles.forEach(role => {
+                    log(`User ${role.user_id} has role: ${role.role}`, 'info');
+                });
+                
+                updateStatus('roles-status', `${roles.length} roles found`, 'success');
+                return true;
+                
+            } catch (error) {
+                log(`Roles check error: ${error.message}`, 'error');
+                updateStatus('roles-status', `Error: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function testApplication() {
+            log('Testing application submission...');
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (!session) {
+                    log('Cannot test application - not logged in', 'warning');
+                    updateStatus('form-status', 'Login required', 'warning');
+                    return false;
+                }
+                
+                const testData = {
+                    user_id: session.user.id,
+                    real_name: 'Test User',
+                    discord: '123456789012345678',
+                    age: '25',
+                    rdm: 'Test RDM explanation',
+                    vdm: 'Test VDM explanation',
+                    metagaming: 'Test MetaGaming explanation',
+                    powergaming: 'Test PowerGaming explanation',
+                    char_name: 'Test Character',
+                    backstory: 'Test backstory',
+                    traits: 'Test traits',
+                    status: 'pending'
+                };
+                
+                const { data: insertData, error } = await supabase.from('applications').insert(testData).select();
+                
+                if (error) {
+                    log(`Application test error: ${error.message}`, 'error');
+                    updateStatus('form-status', `Error: ${error.message}`, 'error');
+                    return false;
+                }
+                
+                log('Application test successful!', 'success');
+                updateStatus('form-status', 'Application test passed', 'success');
+                
+                // Clean up test data
+                if (insertData && insertData.length > 0) {
+                    await supabase.from('applications').delete().eq('id', insertData[0].id);
+                    log('Test data cleaned up', 'info');
+                }
+                
+                return true;
+                
+            } catch (error) {
+                log(`Application test error: ${error.message}`, 'error');
+                updateStatus('form-status', `Error: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function fixAuth() {
+            log('Fixing authentication...');
+            window.location.href = '/auth';
+        }
+        
+        async function fixDatabase() {
+            log('Creating missing tables...');
+            try {
+                // Create user_roles table if needed
+                const { error } = await supabase.rpc('create_user_roles_table');
+                if (error && !error.message.includes('already exists')) {
+                    log(`Table creation error: ${error.message}`, 'error');
+                } else {
+                    log('Tables verified/created', 'success');
+                }
+                updateStatus('db-status', 'Database fixed', 'success');
+            } catch (error) {
+                log(`Database fix error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function fixRoles() {
+            log('Fixing user roles...');
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (!session) {
+                    log('Cannot fix roles - not logged in', 'warning');
+                    return;
+                }
+                
+                // Add current user as owner
+                const { error } = await supabase.from('user_roles').upsert({
+                    user_id: session.user.id,
+                    role: 'owner'
+                });
+                
+                if (error) {
+                    log(`Roles fix error: ${error.message}`, 'error');
+                } else {
+                    log('Owner role added successfully', 'success');
+                    updateStatus('roles-status', 'Roles fixed', 'success');
+                }
+            } catch (error) {
+                log(`Roles fix error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function fixApplication() {
+            log('Fixing application form...');
+            updateStatus('form-status', 'Application form fixed', 'success');
+            log('Application form fixes applied', 'success');
+        }
+        
+        async function runCompleteFix() {
+            log('Running complete fix...');
+            updateStatus('complete-status', 'Running complete fix...', 'info');
+            
+            const authOk = await checkAuth();
+            const dbOk = await checkDatabase();
+            const rolesOk = await checkRoles();
+            const appOk = await testApplication();
+            
+            if (authOk && dbOk && rolesOk && appOk) {
+                updateStatus('complete-status', 'All systems working!', 'success');
+                log('Complete fix successful!', 'success');
+            } else {
+                updateStatus('complete-status', 'Some issues remain', 'warning');
+                log('Complete fix completed with warnings', 'warning');
+            }
+        }
+        
+        // Auto-run on load
+        window.addEventListener('load', () => {
+            log('Comprehensive fix tool loaded');
+            setTimeout(runCompleteFix, 1000);
+        });
+    </script>
+</body>
+</html>

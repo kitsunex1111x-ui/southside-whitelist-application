@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>👑 Complete Owner Setup</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d1b2d 100%); 
+            color: white; 
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: rgba(255,255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+        }
+        h1 { 
+            font-size: 2.5rem; 
+            margin-bottom: 10px; 
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .step {
+            background: rgba(255,255,255,255,0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            text-align: left;
+        }
+        .step-number {
+            background: #ff6b6b;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+        .status {
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+        .success { background: #10b981; }
+        .error { background: #ef4444; }
+        .loading { background: #3b82f6; }
+        .progress {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,255,0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #ee5a24);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        .btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px 0;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(255,107,107,0.3); }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>👑 Owner Setup</h1>
+        
+        <div id="step1" class="step">
+            <div class="step-number">1</div>
+            <div>Initializing Supabase...</div>
+        </div>
+        
+        <div id="step2" class="step hidden">
+            <div class="step-number">2</div>
+            <div>Checking authentication...</div>
+        </div>
+        
+        <div id="step3" class="step hidden">
+            <div class="step-number">3</div>
+            <div>Adding owner permissions...</div>
+        </div>
+        
+        <div id="step4" class="step hidden">
+            <div class="step-number">4</div>
+            <div>Verifying setup...</div>
+        </div>
+        
+        <div id="final-status" class="status hidden">
+            <div id="final-message"></div>
+            <button class="btn" onclick="goToDashboard()">Go to Dashboard</button>
+        </div>
+    </div>
+    
+    <script>
+        // Initialize with your project credentials
+        const supabaseUrl = 'https://xylaoshplmsevlxzizrd.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bGFvc2hwbG1zZXZseHppenJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NDQyMzYsImV4cCI6MjA1MTQyMDIzNn0.p1yL8kQx_8hKjN8q2Y3X4w5z6t7u8v9w0x1y2z3a4b';
+        
+        const { createClient } = window.supabase;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        let currentStep = 1;
+        let currentUser = null;
+        
+        function updateStep(stepNumber, message, showProgress = false) {
+            document.getElementById(`step${stepNumber}`).classList.remove('hidden');
+            if (showProgress) {
+                document.getElementById(`step${stepNumber}`).innerHTML = `
+                    <div class="step-number">${stepNumber}</div>
+                    <div>${message}</div>
+                `;
+            }
+        }
+        
+        function showFinal(message, isSuccess = true) {
+            document.getElementById('final-status').classList.remove('hidden');
+            const finalMessage = document.getElementById('final-message');
+            finalMessage.innerHTML = message;
+            document.getElementById('final-status').className = `status ${isSuccess ? 'success' : 'error'}`;
+        }
+        
+        function goToDashboard() {
+            window.location.href = '/dashboard';
+        }
+        
+        async function completeSetup() {
+            try {
+                updateStep(2, 'Connecting to Supabase...', true);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                updateStep(3, 'Checking authentication...');
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Get current session
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (error) {
+                    showFinal(`❌ Authentication Error: ${error.message}`, false);
+                    return;
+                }
+                
+                if (!session) {
+                    showFinal(`❌ Please log in first. <a href="/auth" style="color: #60a5fa;">Click here to login</a>`, false);
+                    return;
+                }
+                
+                currentUser = session.user;
+                updateStep(4, `Found user: ${session.user.email}`);
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // Add Discord user as owner
+                updateStep(5, 'Adding Discord owner permissions...', true);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                const { data: discordData, error: discordError } = await supabase
+                    .from('user_roles')
+                    .upsert({
+                        user_id: '00000000-0000-0000-000000000000', // Discord user
+                        role: 'owner'
+                    })
+                    .select();
+                
+                if (discordError) {
+                    showFinal(`❌ Error adding Discord: ${discordError.message}`, false);
+                    return;
+                }
+                
+                // Try to find Google user
+                updateStep(6, 'Searching for Google user...', true);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                const { data: users } = await supabase.auth.admin.listUsers();
+                const googleUser = users.users.find(u => u.email === 'kitsunex1111x@gmail.com');
+                
+                if (googleUser) {
+                    updateStep(7, 'Adding Google owner permissions...', true);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    const { data: googleData, error: googleError } = await supabase
+                        .from('user_roles')
+                        .upsert({
+                            user_id: googleUser.id,
+                            role: 'owner'
+                        })
+                        .select();
+                    
+                    if (googleError) {
+                        showFinal(`❌ Error adding Google: ${googleError.message}`, false);
+                        return;
+                    }
+                }
+                
+                // Success!
+                showFinal(`
+                    🎉 <strong>Setup Complete!</strong><br><br>
+                    ✅ Discord user added as owner<br>
+                    ${googleUser ? '✅ Google user added as owner<br>' : '⚠️ Google user not found (needs to login first)'}<br><br>
+                    <strong>Users:</strong><br>
+                    • Discord: ${currentUser.email}<br>
+                    ${googleUser ? `• Google: ${googleUser.email}<br>` : ''}
+                    <br><br>
+                    <small>Refresh your dashboard to see Owner links!</small>
+                `, true);
+                
+            } catch (error) {
+                showFinal(`❌ Setup Error: ${error.message}`, false);
+            }
+        }
+        
+        // Auto-start setup
+        window.addEventListener('load', () => {
+            setTimeout(completeSetup, 1000);
+        });
+    </script>
+</body>
+</html>

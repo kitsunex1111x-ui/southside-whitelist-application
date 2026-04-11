@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Automatic Owner Setup</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Setting up owner access...</h1>
+    <p id="status">Initializing...</p>
+    
+    <script>
+        const supabaseUrl = 'https://xylaoshplmsevlxzizrd.supabase.co';
+        const supabaseKey = 'sb_public_...'; // This will be replaced
+        
+        async function setupOwner() {
+            const statusEl = document.getElementById('status');
+            
+            try {
+                statusEl.textContent = 'Connecting to Supabase...';
+                
+                // Get the current session from the parent window
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (error || !session) {
+                    statusEl.textContent = 'Error: No active session found. Please log in first.';
+                    return;
+                }
+                
+                statusEl.textContent = `Found user: ${session.user.email}`;
+                
+                // Add owner role
+                const { data: roleData, error: roleError } = await supabase
+                    .from('user_roles')
+                    .upsert({
+                        user_id: session.user.id,
+                        role: 'owner'
+                    })
+                    .select();
+                
+                if (roleError) {
+                    statusEl.textContent = `Error adding role: ${roleError.message}`;
+                    return;
+                }
+                
+                statusEl.textContent = `SUCCESS! Owner role added for ${session.user.email}. Refresh your dashboard to see the Owner link!`;
+                
+                // Verify
+                const { data: verifyData } = await supabase
+                    .from('user_roles')
+                    .select('*')
+                    .eq('user_id', session.user.id);
+                
+                console.log('User roles:', verifyData);
+                
+            } catch (error) {
+                statusEl.textContent = `Error: ${error.message}`;
+            }
+        }
+        
+        // Auto-run when page loads
+        window.onload = setupOwner;
+    </script>
+</body>
+</html>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fix Google OAuth - Southside RP</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d1b2d 100%); 
+            color: white; 
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .section {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+        }
+        .btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 8px 4px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(255,107,107,0.3); }
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+        .success { background: #10b981; }
+        .error { background: #ef4444; }
+        .warning { background: #f59e0b; }
+        .info { background: #3b82f6; }
+        .log {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        h1, h2 { background: linear-gradient(45deg, #ff6b6b, #ee5a24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid #444;
+            color: white;
+            border-radius: 5px;
+        }
+        .step {
+            border-left: 4px solid #ff6b6b;
+            padding-left: 20px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Fix Google OAuth for Southside RP</h1>
+    
+    <div class="section">
+        <h2>Problem: Google OAuth Not Enabled</h2>
+        <div id="error-status" class="status error">
+            Error: "Unsupported provider: provider is not enabled"
+        </div>
+        <p>The Google OAuth provider is not enabled in your Supabase project. Follow the steps below to fix it.</p>
+    </div>
+
+    <div class="section">
+        <h2>Step 1: Go to Supabase Dashboard</h2>
+        <ol class="step">
+            <li>Open your Supabase project: <a href="https://supabase.com/dashboard/project/xylaoshplmsevlxzizrd" target="_blank" style="color: #ff6b6b;">https://supabase.com/dashboard/project/xylaoshplmsevlxzizrd</a></li>
+            <li>Click on "Authentication" in the left sidebar</li>
+            <li>Click on "Providers" tab</li>
+        </ol>
+        <button class="btn" onclick="window.open('https://supabase.com/dashboard/project/xylaoshplmsevlxzizrd/auth/providers', '_blank')">
+            Open Supabase Authentication Settings
+        </button>
+    </div>
+
+    <div class="section">
+        <h2>Step 2: Enable Google Provider</h2>
+        <ol class="step">
+            <li>Find "Google" in the list of providers</li>
+            <li>Click the toggle to enable Google OAuth</li>
+            <li>Fill in the required fields:</li>
+        </ol>
+        
+        <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; margin: 15px 0;">
+            <h4>Required Google OAuth Settings:</h4>
+            <p><strong>Client ID:</strong> Your Google OAuth Client ID</p>
+            <p><strong>Client Secret:</strong> Your Google OAuth Client Secret</p>
+            <p><strong>Redirect URL:</strong> https://xylaoshplmsevlxzizrd.supabase.co/auth/v1/callback</p>
+        </div>
+
+        <button class="btn" onclick="window.open('https://console.cloud.google.com/apis/credentials', '_blank')">
+            Open Google Cloud Console
+        </button>
+    </div>
+
+    <div class="section">
+        <h2>Step 3: Get Google OAuth Credentials</h2>
+        <ol class="step">
+            <li>In Google Cloud Console, select your project</li>
+            <li>Go to "APIs & Services" > "Credentials"</li>
+            <li>Click "Create Credentials" > "OAuth 2.0 Client IDs"</li>
+            <li>Application type: "Web application"</li>
+            <li>Name: "Southside RP Auth"</li>
+            <li>Authorized redirect URIs: https://xylaoshplmsevlxzizrd.supabase.co/auth/v1/callback</li>
+            <li>Click "Create"</li>
+            <li>Copy the Client ID and Client Secret</li>
+        </ol>
+    </div>
+
+    <div class="section">
+        <h2>Step 4: Configure Supabase</h2>
+        <ol class="step">
+            <li>Go back to Supabase Authentication > Providers > Google</li>
+            <li>Enter your Google Client ID</li>
+            <li>Enter your Google Client Secret</li>
+            <li>Make sure the redirect URL matches: https://xylaoshplmsevlxzizrd.supabase.co/auth/v1/callback</li>
+            <li>Click "Save"</li>
+        </ol>
+    </div>
+
+    <div class="section">
+        <h2>Step 5: Test Google Login</h2>
+        <div id="test-status" class="status info">Ready to test...</div>
+        <button class="btn" onclick="testGoogleLogin()">Test Google OAuth Login</button>
+        <button class="btn" onclick="window.open('https://localhost:3000/auth', '_blank')">Open Auth Page</button>
+    </div>
+
+    <div class="section">
+        <h2>Debug Log</h2>
+        <div id="debug-log" class="log">Ready for Google OAuth setup...</div>
+    </div>
+    
+    <script>
+        const supabaseUrl = 'https://xylaoshplmsevlxzizrd.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bGFvc2hwbG1zZXZseHppenJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NDQyMzYsImV4cCI6MjA1MTQyMDIzNn0.p1yL8kQx_8hKjN8q2Y3X4w5z6t7u8v9w0x1y2z3a4b';
+        const { createClient } = window.supabase;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEl = document.getElementById('debug-log');
+            logEl.innerHTML += `<div style="color: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : type === 'warning' ? '#f59e0b' : '#60a5fa'}">[${timestamp}] ${message}</div>`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        function updateStatus(elementId, message, type = 'info') {
+            const el = document.getElementById(elementId);
+            if (el) {
+                el.textContent = message;
+                el.className = `status ${type}`;
+            }
+        }
+        
+        async function testGoogleLogin() {
+            log('Testing Google OAuth login...');
+            updateStatus('test-status', 'Testing Google OAuth...', 'info');
+            
+            try {
+                const { error } = await supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: 'https://localhost:3000/auth/callback',
+                    },
+                });
+                
+                if (error) {
+                    log(`Google OAuth error: ${error.message}`, 'error');
+                    updateStatus('test-status', `Error: ${error.message}`, 'error');
+                    
+                    if (error.message.includes('provider is not enabled')) {
+                        log('Google provider is still not enabled. Please check Supabase Authentication settings.', 'warning');
+                        updateStatus('test-status', 'Google provider not enabled. Check Supabase settings.', 'warning');
+                    }
+                } else {
+                    log('Google OAuth login initiated successfully!', 'success');
+                    updateStatus('test-status', 'Google OAuth working! Check the popup window.', 'success');
+                }
+            } catch (err) {
+                log(`Test error: ${err.message}`, 'error');
+                updateStatus('test-status', `Error: ${err.message}`, 'error');
+            }
+        }
+        
+        // Auto-check status on load
+        window.addEventListener('load', () => {
+            log('Google OAuth fix tool loaded');
+            log('Project: https://supabase.com/dashboard/project/xylaoshplmsevlxzizrd');
+            log('Follow the steps above to enable Google OAuth');
+        });
+    </script>
+</body>
+</html>

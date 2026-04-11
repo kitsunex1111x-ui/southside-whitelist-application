@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auto Owner Access Setup</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d1b2d 100%); 
+            color: white; 
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: rgba(255,255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+        }
+        h1 { 
+            font-size: 2.5rem; 
+            margin-bottom: 20px; 
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .step {
+            background: rgba(255,255,255,255,0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            text-align: left;
+        }
+        .btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px 0;
+            width: 100%;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(255,107,107,0.3); }
+        .status {
+            padding: 12px;
+            border-radius: 10px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+        .success { background: #10b981; }
+        .error { background: #ef4444; }
+        .warning { background: #f59e0b; }
+        .info { background: #3b82f6; }
+        .hidden { display: none; }
+        .progress { width: 100%; height: 8px; background: rgba(255,255,255,255,255,0.2); border-radius: 4px; overflow: hidden; margin: 10px 0; }
+        .progress-bar { height: 100%; background: linear-gradient(90deg, #ff6b6b, #ee5a24); border-radius: 4px; transition: width 0.3s ease; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>👑 Auto Owner Access</h1>
+        
+        <div id="step1" class="step">
+            <h3>Step 1: Setup Database Triggers</h3>
+            <div id="db-status" class="status info">Setting up automatic owner access...</div>
+            <button class="btn" onclick="setupDatabase()">Setup Database</button>
+        </div>
+        
+        <div id="step2" class="step hidden">
+            <h3>Step 2: Test Auto Owner Access</h3>
+            <div id="test-status" class="status info">Testing automatic owner assignment...</div>
+            <button class="btn" onclick="testAutoOwner()">Test Auto Owner</button>
+        </div>
+        
+        <div id="step3" class="step hidden">
+            <h3>Step 3: Create New Test User</h3>
+            <div id="create-status" class="status info">Ready to create test user...</div>
+            <input type="email" id="test-email" placeholder="test@example.com" style="width: 100%; padding: 10px; margin: 10px 0; background: rgba(255,255,255,255,255,0.1); border: 1px solid #444; color: white; border-radius: 5px;">
+            <input type="password" id="test-password" placeholder="password123" style="width: 100%; padding: 10px; margin: 10px 0; background: rgba(255,255,255,255,255,0.1); border: 1px solid #444; color: white; border-radius: 5px;">
+            <button class="btn" onclick="createTestUser()">Create Test User</button>
+        </div>
+        
+        <div id="step4" class="step hidden">
+            <h3>Step 4: Complete Setup</h3>
+            <div id="final-status" class="status success">✅ Auto owner access is now active!</div>
+            <button class="btn" onclick="goToAuth()">Go to Sign Up</button>
+        </div>
+        
+        <div class="progress">
+            <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+        </div>
+    </div>
+    
+    <script>
+        const supabaseUrl = 'https://xylaoshplmsevlxzizrd.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bGFvc2hwbG1zZXZseHppenJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NDQyMzYsImV4cCI6MjA1MTQyMDIzNn0.p1yL8kQx_8hKjN8q2Y3X4w5z6t7u8v9w0x1y2z3a4b';
+        const { createClient } = window.supabase;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        let currentStep = 1;
+        
+        function updateProgress(percent) {
+            document.getElementById('progress-bar').style.width = percent + '%';
+        }
+        
+        function showStep(stepNumber) {
+            for (let i = 1; i <= 4; i++) {
+                document.getElementById(`step${i}`).classList.add('hidden');
+            }
+            document.getElementById(`step${stepNumber}`).classList.remove('hidden');
+            updateProgress((stepNumber - 1) * 25);
+        }
+        
+        function updateStatus(elementId, message, type = 'info') {
+            const el = document.getElementById(elementId);
+            if (el) {
+                el.textContent = message;
+                el.className = `status ${type}`;
+            }
+        }
+        
+        async function setupDatabase() {
+            updateStatus('db-status', 'Setting up database triggers...', 'info');
+            
+            try {
+                // Execute the auto-owner SQL setup
+                const { data, error } = await supabase.rpc('execute_sql', {
+                    sql: `
+                        CREATE OR REPLACE FUNCTION public.auto_assign_owner_role()
+                        RETURNS TRIGGER AS $$
+                        BEGIN
+                            INSERT INTO public.user_roles (user_id, role, created_at)
+                            VALUES (NEW.id, 'owner', NOW())
+                            ON CONFLICT (user_id) DO NOTHING;
+                            RETURN NEW;
+                        END;
+                        $$ LANGUAGE plpgsql SECURITY DEFINER;
+                        
+                        DROP TRIGGER IF EXISTS public.on_auth_user_created;
+                        CREATE TRIGGER public.on_auth_user_created
+                            AFTER INSERT ON public.auth.users
+                            FOR EACH ROW
+                            EXECUTE FUNCTION public.auto_assign_owner_role();
+                    `
+                });
+                
+                if (error) {
+                    console.error('Database setup error:', error);
+                    updateStatus('db-status', `Error: ${error.message}`, 'error');
+                    return;
+                }
+                
+                updateStatus('db-status', '✅ Database setup complete!', 'success');
+                setTimeout(() => showStep(2), 1500);
+                
+            } catch (error) {
+                console.error('Setup error:', error);
+                updateStatus('db-status', `Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testAutoOwner() {
+            updateStatus('test-status', 'Testing automatic owner assignment...', 'info');
+            
+            try {
+                // Test if current user has owner role
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (error || !session) {
+                    updateStatus('test-status', 'Please login first', 'warning');
+                    return;
+                }
+                
+                const { data: roles } = await supabase
+                    .from('user_roles')
+                    .select('*')
+                    .eq('user_id', session.user.id);
+                
+                if (roles && roles.length > 0 && roles[0].role === 'owner') {
+                    updateStatus('test-status', '✅ Owner role detected!', 'success');
+                    setTimeout(() => showStep(3), 1500);
+                } else {
+                    updateStatus('test-status', 'Owner role not found - creating...', 'warning');
+                    
+                    // Manually add owner role for testing
+                    const { error: insertError } = await supabase
+                        .from('user_roles')
+                        .insert({
+                            user_id: session.user.id,
+                            role: 'owner'
+                        });
+                    
+                    if (insertError) {
+                        updateStatus('test-status', `Error: ${insertError.message}`, 'error');
+                    } else {
+                        updateStatus('test-status', '✅ Owner role added!', 'success');
+                        setTimeout(() => showStep(3), 1500);
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Test error:', error);
+                updateStatus('test-status', `Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function createTestUser() {
+            const email = document.getElementById('test-email').value;
+            const password = document.getElementById('test-password').value;
+            
+            if (!email || !password) {
+                updateStatus('create-status', 'Please fill in email and password', 'warning');
+                return;
+            }
+            
+            updateStatus('create-status', 'Creating test user...', 'info');
+            
+            try {
+                const { data, error } = await supabase.auth.signUp({
+                    email: email,
+                    password: password,
+                    options: {
+                        data: {
+                            role: 'owner' // This will be used by trigger
+                        }
+                    }
+                });
+                
+                if (error) {
+                    updateStatus('create-status', `Error: ${error.message}`, 'error');
+                } else {
+                    updateStatus('create-status', '✅ Test user created! Auto owner access active.', 'success');
+                    setTimeout(() => showStep(4), 1500);
+                }
+                
+            } catch (error) {
+                console.error('Create user error:', error);
+                updateStatus('create-status', `Error: ${error.message}`, 'error');
+            }
+        }
+        
+        function goToAuth() {
+            window.location.href = '/auth';
+        }
+        
+        // Auto-start setup
+        window.addEventListener('load', () => {
+            setTimeout(setupDatabase, 1000);
+        });
+    </script>
+</body>
+</html>

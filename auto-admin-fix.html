@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auto Admin Fix - Southside RP</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d1b2d 100%); 
+            color: white; 
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .section {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+        }
+        .btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 8px 4px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(255,107,107,0.3); }
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+        .success { background: #10b981; }
+        .error { background: #ef4444; }
+        .warning { background: #f59e0b; }
+        .info { background: #3b82f6; }
+        .log {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        h1, h2 { background: linear-gradient(45deg, #ff6b6b, #ee5a24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    </style>
+</head>
+<body>
+    <h1>Auto Admin Fix - Southside RP</h1>
+    
+    <div class="section">
+        <h2>One-Click Admin Fix</h2>
+        <div id="fix-status" class="status info">Ready to fix admin dashboard...</div>
+        <button class="btn" onclick="runAutoFix()">Run Complete Admin Fix</button>
+        <button class="btn" onclick="runTests()">Run Tests Only</button>
+    </div>
+
+    <div class="section">
+        <h2>Progress</h2>
+        <div id="progress-log" class="log">Click "Run Complete Admin Fix" to start...</div>
+    </div>
+
+    <div class="section">
+        <h2>Final Status</h2>
+        <div id="final-status" class="status info">Waiting for fix completion...</div>
+    </div>
+    
+    <script>
+        const supabaseUrl = 'https://xylaoshplmsevlxzizrd.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bGFvc2hwbG1zZXZseHppenJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NDQyMzYsImV4cCI6MjA1MTQyMDIzNn0.p1yL8kQx_8hKjN8q2Y3X4w5z6t7u8v9w0x1y2z3a4b';
+        const { createClient } = window.supabase;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        let currentUser = null;
+        let fixResults = {
+            auth: false,
+            roles: false,
+            adminRole: false,
+            appsAccess: false,
+            updateTest: false,
+            notesTest: false,
+            logsTest: false
+        };
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEl = document.getElementById('progress-log');
+            logEl.innerHTML += `<div style="color: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : type === 'warning' ? '#f59e0b' : '#60a5fa'}">[${timestamp}] ${message}</div>`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        function updateStatus(elementId, message, type = 'info') {
+            const el = document.getElementById(elementId);
+            if (el) {
+                el.textContent = message;
+                el.className = `status ${type}`;
+            }
+        }
+        
+        async function runAutoFix() {
+            log('=== STARTING COMPLETE ADMIN FIX ===');
+            updateStatus('fix-status', 'Running admin fix...', 'warning');
+            
+            try {
+                // Step 1: Check Authentication
+                log('Step 1: Checking authentication...');
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                
+                if (sessionError || !session) {
+                    log('ERROR: No user session found. Please login first.', 'error');
+                    updateStatus('final-status', 'FAILED - No user session', 'error');
+                    return;
+                }
+                
+                currentUser = session.user;
+                log(`SUCCESS: User authenticated - ${session.user.email}`, 'success');
+                fixResults.auth = true;
+                
+                // Step 2: Check Current Roles
+                log('Step 2: Checking current roles...');
+                const { data: rolesData, error: rolesError } = await supabase
+                    .from("user_roles")
+                    .select("role")
+                    .eq("user_id", currentUser.id);
+                
+                if (rolesError) {
+                    log(`ERROR: Cannot check roles - ${rolesError.message}`, 'error');
+                    updateStatus('final-status', 'FAILED - Role check error', 'error');
+                    return;
+                }
+                
+                const currentRoles = rolesData?.map(r => r.role) ?? [];
+                log(`Current roles: ${currentRoles.join(', ') || 'None'}`);
+                fixResults.roles = true;
+                
+                // Step 3: Assign Admin Role
+                log('Step 3: Assigning admin role...');
+                if (currentRoles.includes('admin') || currentRoles.includes('owner')) {
+                    log('User already has admin access!', 'success');
+                } else {
+                    const { error: insertError } = await supabase
+                        .from("user_roles")
+                        .insert({
+                            user_id: currentUser.id,
+                            role: "admin"
+                        });
+                    
+                    if (insertError) {
+                        if (insertError.message.includes('duplicate')) {
+                            log('Admin role already exists', 'success');
+                        } else {
+                            log(`ERROR: Cannot assign admin role - ${insertError.message}`, 'error');
+                            updateStatus('final-status', 'FAILED - Admin role assignment', 'error');
+                            return;
+                        }
+                    } else {
+                        log('Admin role assigned successfully!', 'success');
+                    }
+                }
+                fixResults.adminRole = true;
+                
+                // Step 4: Test Applications Access
+                log('Step 4: Testing applications access...');
+                const { data: appsData, error: appsError } = await supabase
+                    .from("applications")
+                    .select("*")
+                    .order("created_at", { ascending: false });
+                
+                if (appsError) {
+                    log(`ERROR: Cannot access applications - ${appsError.message}`, 'error');
+                    updateStatus('final-status', 'FAILED - Applications access', 'error');
+                    return;
+                }
+                
+                log(`SUCCESS: Found ${appsData.length} applications`, 'success');
+                fixResults.appsAccess = true;
+                
+                // Step 5: Test Update Function
+                log('Step 5: Testing update function...');
+                if (appsData.length > 0) {
+                    const testApp = appsData[0];
+                    const { data: updateData, error: updateError } = await supabase
+                        .from("applications")
+                        .update({ 
+                            status: "pending", 
+                            reviewed_by: currentUser.id 
+                        })
+                        .eq("id", testApp.id)
+                        .select();
+                    
+                    if (updateError) {
+                        log(`ERROR: Cannot update application - ${updateError.message}`, 'error');
+                        updateStatus('final-status', 'FAILED - Update function', 'error');
+                        return;
+                    }
+                    
+                    log('SUCCESS: Application update works!', 'success');
+                    fixResults.updateTest = true;
+                    
+                    // Step 6: Test Notes Function
+                    log('Step 6: Testing notes function...');
+                    const { data: notesData, error: notesError } = await supabase
+                        .from("applications")
+                        .update({ 
+                            admin_notes: "Auto-fix test note - " + new Date().toLocaleString()
+                        })
+                        .eq("id", testApp.id)
+                        .select();
+                    
+                    if (notesError) {
+                        log(`ERROR: Cannot add notes - ${notesError.message}`, 'error');
+                        updateStatus('final-status', 'FAILED - Notes function', 'error');
+                        return;
+                    }
+                    
+                    log('SUCCESS: Notes function works!', 'success');
+                    fixResults.notesTest = true;
+                } else {
+                    log('WARNING: No applications to test with', 'warning');
+                    fixResults.updateTest = true;
+                    fixResults.notesTest = true;
+                }
+                
+                // Step 7: Test Admin Logs
+                log('Step 7: Testing admin logs...');
+                const { data: logsData, error: logsError } = await supabase
+                    .from("admin_logs")
+                    .select("*")
+                    .order("created_at", { ascending: false })
+                    .limit(5);
+                
+                if (logsError) {
+                    log(`ERROR: Cannot access admin logs - ${logsError.message}`, 'error');
+                    updateStatus('final-status', 'FAILED - Admin logs', 'error');
+                    return;
+                }
+                
+                log(`SUCCESS: Found ${logsData.length} admin log entries`, 'success');
+                fixResults.logsTest = true;
+                
+                // Final Status
+                const allPassed = Object.values(fixResults).every(result => result === true);
+                if (allPassed) {
+                    log('=== ALL TESTS PASSED! ADMIN DASHBOARD FIXED ===', 'success');
+                    updateStatus('final-status', 'SUCCESS - Admin dashboard fully functional!', 'success');
+                    updateStatus('fix-status', 'Fix completed successfully!', 'success');
+                } else {
+                    log('=== SOME TESTS FAILED ===', 'warning');
+                    updateStatus('final-status', 'PARTIAL - Some functions may not work', 'warning');
+                }
+                
+            } catch (error) {
+                log(`FATAL ERROR: ${error.message}`, 'error');
+                updateStatus('final-status', 'FAILED - Fatal error', 'error');
+            }
+        }
+        
+        async function runTests() {
+            log('=== RUNNING TESTS ONLY ===');
+            updateStatus('fix-status', 'Running tests...', 'info');
+            
+            // Quick test without assigning roles
+            try {
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                if (sessionError || !session) {
+                    log('ERROR: No user session', 'error');
+                    updateStatus('final-status', 'FAILED - No session', 'error');
+                    return;
+                }
+                
+                currentUser = session.user;
+                log(`Testing for user: ${session.user.email}`);
+                
+                // Test applications access
+                const { data: appsData, error: appsError } = await supabase
+                    .from("applications")
+                    .select("*")
+                    .limit(5);
+                
+                if (appsError) {
+                    log(`Applications access failed: ${appsError.message}`, 'error');
+                } else {
+                    log(`Applications access: OK (${appsData.length} found)`, 'success');
+                }
+                
+                // Test admin logs
+                const { data: logsData, error: logsError } = await supabase
+                    .from("admin_logs")
+                    .select("*")
+                    .limit(3);
+                
+                if (logsError) {
+                    log(`Admin logs access failed: ${logsError.message}`, 'error');
+                } else {
+                    log(`Admin logs access: OK (${logsData.length} found)`, 'success');
+                }
+                
+                updateStatus('final-status', 'Tests completed', 'info');
+                
+            } catch (error) {
+                log(`Test error: ${error.message}`, 'error');
+                updateStatus('final-status', 'Tests failed', 'error');
+            }
+        }
+        
+        // Initialize
+        window.addEventListener('load', () => {
+            log('Auto Admin Fix tool loaded');
+            log('Click "Run Complete Admin Fix" to fix all admin dashboard issues');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Admin Dashboard - Southside RP</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d1b2d 100%); 
+            color: white; 
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .section {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+        }
+        .btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 8px 4px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(255,107,107,0.3); }
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+        .success { background: #10b981; }
+        .error { background: #ef4444; }
+        .warning { background: #f59e0b; }
+        .info { background: #3b82f6; }
+        .log {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        h1, h2 { background: linear-gradient(45deg, #ff6b6b, #ee5a24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .table {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .table-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .table-header {
+            font-weight: bold;
+            color: #ff6b6b;
+        }
+        .step {
+            border-left: 4px solid #ff6b6b;
+            padding-left: 20px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Debug Admin Dashboard</h1>
+    
+    <div class="section">
+        <h2>Authentication Check</h2>
+        <div id="auth-status" class="status info">Checking authentication...</div>
+        <button class="btn" onclick="checkAuth()">Check User Auth</button>
+        <button class="btn" onclick="checkRoles()">Check User Roles</button>
+        <button class="btn" onclick="checkAdminAccess()">Check Admin Access</button>
+        <button class="btn" onclick="checkOAuthCallback()">Check OAuth Callback</button>
+        <div id="oauth-info" class="table" style="margin-top: 15px;">
+            <div class="table-row">
+                <div>Current URL:</div>
+                <div id="current-url">Loading...</div>
+            </div>
+            <div class="table-row">
+                <div>Code Parameter:</div>
+                <div id="code-param">Loading...</div>
+            </div>
+            <div class="table-row">
+                <div>Error Parameter:</div>
+                <div id="error-param">Loading...</div>
+            </div>
+            <div class="table-row">
+                <div>State Parameter:</div>
+                <div id="state-param">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Database Schema Check</h2>
+        <div id="schema-status" class="status info">Checking database schema...</div>
+        <button class="btn" onclick="checkApplicationsTable()">Check Applications Table</button>
+        <button class="btn" onclick="checkUserRolesTable()">Check User Roles Table</button>
+        <button class="btn" onclick="checkAdminLogsTable()">Check Admin Logs Table</button>
+    </div>
+
+    <div class="section">
+        <h2>Applications Data</h2>
+        <div id="apps-status" class="status info">Checking applications...</div>
+        <button class="btn" onclick="fetchAllApplications()">Fetch All Applications</button>
+        <button class="btn" onclick="fetchPendingApplications()">Fetch Pending Applications</button>
+        <button class="btn" onclick="createTestApplication()">Create Test Application</button>
+    </div>
+
+    <div class="section">
+        <h2>Admin Functionality Test</h2>
+        <div id="admin-status" class="status info">Testing admin functions...</div>
+        <button class="btn" onclick="testStatusUpdate()">Test Status Update</button>
+        <button class="btn" onclick="testNotesUpdate()">Test Notes Update</button>
+        <button class="btn" onclick="testAdminLogs()">Test Admin Logs</button>
+    </div>
+
+    <div class="section">
+        <h2>Applications Table</h2>
+        <div id="applications-table" class="table">
+            <div class="table-row table-header">
+                <div>ID</div>
+                <div>Character Name</div>
+                <div>Discord</div>
+                <div>Status</div>
+            </div>
+            <div id="applications-rows">
+                <div class="table-row">
+                    <div colspan="4">Click "Fetch All Applications" to load data</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Structured Diagnostic Report</h2>
+        <button class="btn" onclick="generateDiagnosticReport()">Generate Diagnostic Report</button>
+        <div id="diagnostic-report" class="log" style="margin-top: 15px;">
+            Click "Generate Diagnostic Report" to get the structured output in the format you requested.
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Debug Log</h2>
+        <div id="debug-log" class="log">Initializing admin dashboard debug tool...</div>
+    </div>
+    
+    <script>
+        const supabaseUrl = 'https://xylaoshplmsevlxzizrd.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bGFvc2hwbG1zZXZseHppenJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NDQyMzYsImV4cCI6MjA1MTQyMDIzNn0.p1yL8kQx_8hKjN8q2Y3X4w5z6t7u8v9w0x1y2z3a4b';
+        const { createClient } = window.supabase;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        let currentUser = null;
+        let userRoles = [];
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEl = document.getElementById('debug-log');
+            logEl.innerHTML += `<div style="color: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : type === 'warning' ? '#f59e0b' : '#60a5fa'}">[${timestamp}] ${message}</div>`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        function updateStatus(elementId, message, type = 'info') {
+            const el = document.getElementById(elementId);
+            if (el) {
+                el.textContent = message;
+                el.className = `status ${type}`;
+            }
+        }
+        
+        async function checkAuth() {
+            log('=== Checking User Authentication ===');
+            
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (session) {
+                    currentUser = session.user;
+                    log(`User authenticated: ${session.user.email}`);
+                    log(`User ID: ${session.user.id}`);
+                    log(`Provider: ${session.user.app_metadata?.provider || 'unknown'}`);
+                    updateStatus('auth-status', 'User authenticated', 'success');
+                } else {
+                    log('No user session found');
+                    updateStatus('auth-status', 'No user authenticated', 'warning');
+                }
+                
+                if (error) {
+                    log(`Auth error: ${error.message}`, 'error');
+                    updateStatus('auth-status', 'Auth error', 'error');
+                }
+                
+            } catch (err) {
+                log(`Auth check error: ${err.message}`, 'error');
+                updateStatus('auth-status', 'Auth check failed', 'error');
+            }
+        }
+        
+        async function checkRoles() {
+            log('=== Checking User Roles ===');
+            
+            if (!currentUser) {
+                log('No user to check roles for', 'warning');
+                updateStatus('auth-status', 'No user to check roles', 'warning');
+                return;
+            }
+            
+            try {
+                const { data, error } = await supabase
+                    .from("user_roles")
+                    .select("role")
+                    .eq("user_id", currentUser.id);
+                
+                if (error) {
+                    log(`Roles error: ${error.message}`, 'error');
+                    updateStatus('auth-status', 'Roles error', 'error');
+                } else {
+                    userRoles = data?.map(r => r.role) ?? [];
+                    log(`User roles: ${userRoles.join(', ')}`);
+                    
+                    if (userRoles.includes('admin') || userRoles.includes('owner')) {
+                        log('User has admin access');
+                        updateStatus('auth-status', 'User has admin access', 'success');
+                    } else {
+                        log('User does not have admin access');
+                        updateStatus('auth-status', 'No admin access', 'warning');
+                    }
+                }
+                
+            } catch (err) {
+                log(`Roles check error: ${err.message}`, 'error');
+                updateStatus('auth-status', 'Roles check failed', 'error');
+            }
+        }
+        
+        async function checkAdminAccess() {
+            log('=== Checking Admin Access ===');
+            
+            await checkAuth();
+            await checkRoles();
+            
+            if (!currentUser) {
+                log('Cannot check admin access - no user', 'warning');
+                return;
+            }
+            
+            const hasAdminAccess = userRoles.includes('admin') || userRoles.includes('owner');
+            
+            if (hasAdminAccess) {
+                log('Admin access confirmed');
+                updateStatus('admin-status', 'Admin access confirmed', 'success');
+            } else {
+                log('No admin access');
+                updateStatus('admin-status', 'No admin access', 'error');
+            }
+        }
+        
+        function checkOAuthCallback() {
+            log('=== Checking OAuth Callback Parameters ===');
+            
+            const url = window.location.href;
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const error = urlParams.get('error');
+            const errorDescription = urlParams.get('error_description');
+            const state = urlParams.get('state');
+            
+            // Update the display
+            document.getElementById('current-url').textContent = url;
+            document.getElementById('code-param').textContent = code || 'None';
+            document.getElementById('error-param').textContent = error || 'None';
+            document.getElementById('state-param').textContent = state || 'None';
+            
+            // Log the analysis
+            log(`Current URL: ${url}`);
+            log(`Code parameter: ${code || 'None'}`);
+            log(`Error parameter: ${error || 'None'}`);
+            log(`Error description: ${errorDescription || 'None'}`);
+            log(`State parameter: ${state || 'None'}`);
+            
+            // Analyze the callback
+            if (error) {
+                log('OAuth callback contains error - this indicates a problem with the OAuth flow', 'error');
+                if (error === 'server_error') {
+                    log('Server error suggests redirect URL configuration issue', 'error');
+                    log('Check: Supabase Site URL and Redirect URLs configuration', 'warning');
+                } else if (error === 'access_denied') {
+                    log('User denied access - this is expected if user cancelled login', 'warning');
+                } else {
+                    log(`Unknown OAuth error: ${error}`, 'error');
+                }
+                updateStatus('auth-status', `OAuth error: ${error}`, 'error');
+            } else if (code) {
+                log('OAuth callback contains auth code - this is good!', 'success');
+                log('The code should be processed by Supabase to create a session', 'info');
+                log('If no session is created, check AuthCallback component', 'info');
+                updateStatus('auth-status', 'OAuth code received', 'success');
+            } else {
+                log('No OAuth parameters found - this is not a callback URL', 'info');
+                log('This appears to be a direct page load', 'info');
+                updateStatus('auth-status', 'No OAuth callback', 'info');
+            }
+            
+            // Check if we're on the callback page
+            if (url.includes('/auth/callback')) {
+                log('Currently on auth/callback page', 'info');
+                if (code) {
+                    log('Auth callback page with code - should create session', 'success');
+                } else if (error) {
+                    log('Auth callback page with error - OAuth failed', 'error');
+                } else {
+                    log('Auth callback page without parameters - redirect issue', 'warning');
+                }
+            }
+        }
+        
+        async function checkApplicationsTable() {
+            log('=== Checking Applications Table ===');
+            
+            try {
+                const { data, error } = await supabase
+                    .from("applications")
+                    .select("*")
+                    .limit(1);
+                
+                if (error) {
+                    log(`Applications table error: ${error.message}`, 'error');
+                    updateStatus('schema-status', 'Applications table error', 'error');
+                } else {
+                    log('Applications table accessible');
+                    if (data.length > 0) {
+                        log(`Sample application found: ${data[0].char_name}`);
+                    }
+                    updateStatus('schema-status', 'Applications table OK', 'success');
+                }
+                
+            } catch (err) {
+                log(`Applications table check error: ${err.message}`, 'error');
+                updateStatus('schema-status', 'Applications table check failed', 'error');
+            }
+        }
+        
+        async function checkUserRolesTable() {
+            log('=== Checking User Roles Table ===');
+            
+            try {
+                const { data, error } = await supabase
+                    .from("user_roles")
+                    .select("*")
+                    .limit(1);
+                
+                if (error) {
+                    log(`User roles table error: ${error.message}`, 'error');
+                    updateStatus('schema-status', 'User roles table error', 'error');
+                } else {
+                    log('User roles table accessible');
+                    updateStatus('schema-status', 'User roles table OK', 'success');
+                }
+                
+            } catch (err) {
+                log(`User roles table check error: ${err.message}`, 'error');
+                updateStatus('schema-status', 'User roles table check failed', 'error');
+            }
+        }
+        
+        async function checkAdminLogsTable() {
+            log('=== Checking Admin Logs Table ===');
+            
+            try {
+                const { data, error } = await supabase
+                    .from("admin_logs")
+                    .select("*")
+                    .limit(1);
+                
+                if (error) {
+                    log(`Admin logs table error: ${error.message}`, 'error');
+                    updateStatus('schema-status', 'Admin logs table error', 'error');
+                } else {
+                    log('Admin logs table accessible');
+                    updateStatus('schema-status', 'Admin logs table OK', 'success');
+                }
+                
+            } catch (err) {
+                log(`Admin logs table check error: ${err.message}`, 'error');
+                updateStatus('schema-status', 'Admin logs table check failed', 'error');
+            }
+        }
+        
+        async function fetchAllApplications() {
+            log('=== Fetching All Applications ===');
+            
+            try {
+                const { data, error } = await supabase
+                    .from("applications")
+                    .select("*")
+                    .order("created_at", { ascending: false });
+                
+                if (error) {
+                    log(`Fetch applications error: ${error.message}`, 'error');
+                    updateStatus('apps-status', 'Fetch failed', 'error');
+                } else {
+                    log(`Found ${data.length} applications`);
+                    updateStatus('apps-status', `Found ${data.length} applications`, 'success');
+                    displayApplications(data);
+                }
+                
+            } catch (err) {
+                log(`Fetch applications error: ${err.message}`, 'error');
+                updateStatus('apps-status', 'Fetch failed', 'error');
+            }
+        }
+        
+        async function fetchPendingApplications() {
+            log('=== Fetching Pending Applications ===');
+            
+            try {
+                const { data, error } = await supabase
+                    .from("applications")
+                    .select("*")
+                    .eq("status", "pending")
+                    .order("created_at", { ascending: false });
+                
+                if (error) {
+                    log(`Fetch pending error: ${error.message}`, 'error');
+                    updateStatus('apps-status', 'Fetch pending failed', 'error');
+                } else {
+                    log(`Found ${data.length} pending applications`);
+                    updateStatus('apps-status', `Found ${data.length} pending applications`, 'success');
+                    displayApplications(data);
+                }
+                
+            } catch (err) {
+                log(`Fetch pending error: ${err.message}`, 'error');
+                updateStatus('apps-status', 'Fetch pending failed', 'error');
+            }
+        }
+        
+        async function createTestApplication() {
+            log('=== Creating Test Application ===');
+            
+            if (!currentUser) {
+                log('Cannot create test application - no user', 'warning');
+                return;
+            }
+            
+            try {
+                const { data, error } = await supabase
+                    .from("applications")
+                    .insert({
+                        user_id: currentUser.id,
+                        real_name: "Test User",
+                        discord: "123456789012345678",
+                        age: "25",
+                        rdm: "Test RDM answer",
+                        vdm: "Test VDM answer",
+                        metagaming: "Test metagaming answer",
+                        powergaming: "Test powergaming answer",
+                        char_name: "Test Character",
+                        backstory: "Test backstory for debugging purposes",
+                        traits: "Test traits",
+                        status: "pending"
+                    })
+                    .select();
+                
+                if (error) {
+                    log(`Create test application error: ${error.message}`, 'error');
+                    updateStatus('apps-status', 'Create failed', 'error');
+                } else {
+                    log('Test application created successfully');
+                    updateStatus('apps-status', 'Test application created', 'success');
+                    fetchAllApplications();
+                }
+                
+            } catch (err) {
+                log(`Create test application error: ${err.message}`, 'error');
+                updateStatus('apps-status', 'Create failed', 'error');
+            }
+        }
+        
+        function displayApplications(applications) {
+            const rowsEl = document.getElementById('applications-rows');
+            
+            if (applications.length === 0) {
+                rowsEl.innerHTML = '<div class="table-row"><div colspan="4">No applications found</div></div>';
+                return;
+            }
+            
+            rowsEl.innerHTML = applications.map(app => `
+                <div class="table-row">
+                    <div>${app.id.slice(0, 8)}...</div>
+                    <div>${app.char_name || 'N/A'}</div>
+                    <div>${app.discord || 'N/A'}</div>
+                    <div>${app.status || 'N/A'}</div>
+                </div>
+            `).join('');
+        }
+        
+        async function testStatusUpdate() {
+            log('=== Testing Status Update ===');
+            
+            // This would need a real application ID to test
+            log('Status update test requires a real application ID', 'info');
+            updateStatus('admin-status', 'Status update test skipped', 'info');
+        }
+        
+        async function testNotesUpdate() {
+            log('=== Testing Notes Update ===');
+            
+            // This would need a real application ID to test
+            log('Notes update test requires a real application ID', 'info');
+            updateStatus('admin-status', 'Notes update test skipped', 'info');
+        }
+        
+        async function testAdminLogs() {
+            log('=== Testing Admin Logs ===');
+            
+            try {
+                const { data, error } = await supabase
+                    .from("admin_logs")
+                    .select("*")
+                    .order("created_at", { ascending: false })
+                    .limit(5);
+                
+                if (error) {
+                    log(`Admin logs test error: ${error.message}`, 'error');
+                    updateStatus('admin-status', 'Admin logs test failed', 'error');
+                } else {
+                    log(`Found ${data.length} admin log entries`);
+                    updateStatus('admin-status', 'Admin logs test passed', 'success');
+                }
+                
+            } catch (err) {
+                log(`Admin logs test error: ${err.message}`, 'error');
+                updateStatus('admin-status', 'Admin logs test failed', 'error');
+            }
+        }
+        
+        async function generateDiagnosticReport() {
+            log('=== Generating Structured Diagnostic Report ===');
+            
+            let report = '[1] OAuth/session:\n';
+            
+            // OAuth/Session section
+            const url = window.location.href;
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const error = urlParams.get('error');
+            const errorDescription = urlParams.get('error_description');
+            
+            report += `- callback URL in browser: ${url}\n`;
+            report += `- debug message: `;
+            
+            if (error) {
+                report += `OAuth error: ${error}`;
+                if (errorDescription) report += ` - ${errorDescription}`;
+                report += '\n';
+            } else if (code) {
+                report += `OAuth code received successfully\n`;
+            } else {
+                report += `No OAuth callback parameters\n`;
+            }
+            
+            // Session check
+            try {
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                
+                if (sessionError) {
+                    report += `- console errors: Session error - ${sessionError.message}\n`;
+                } else if (session) {
+                    report += `- console errors: None - Session created successfully\n`;
+                } else {
+                    report += `- console errors: No session created despite OAuth callback\n`;
+                }
+            } catch (err) {
+                report += `- console errors: Session check failed - ${err.message}\n`;
+            }
+            
+            report += '\n[2] Admin/roles:\n';
+            
+            // Admin/Roles section
+            try {
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                
+                if (sessionError || !session) {
+                    report += `- user id: null\n`;
+                    report += `- admin check: no\n`;
+                    report += `- roles query result/error: No user session\n`;
+                } else {
+                    report += `- user id: ${session.user.id}\n`;
+                    
+                    const { data: rolesData, error: rolesError } = await supabase
+                        .from("user_roles")
+                        .select("role")
+                        .eq("user_id", session.user.id);
+                    
+                    const userRoles = rolesData?.map(r => r.role) ?? [];
+                    const hasAdminAccess = userRoles.includes('admin') || userRoles.includes('owner');
+                    
+                    report += `- admin check: ${hasAdminAccess ? 'yes' : 'no'}\n`;
+                    
+                    if (rolesError) {
+                        report += `- roles query result/error: ${rolesError.message}\n`;
+                    } else {
+                        report += `- roles query result/error: ${JSON.stringify(userRoles)}\n`;
+                    }
+                }
+            } catch (err) {
+                report += `- user id: Error checking session\n`;
+                report += `- admin check: no\n`;
+                report += `- roles query result/error: ${err.message}\n`;
+            }
+            
+            report += '\n[3] Applications:\n';
+            
+            // Applications section
+            try {
+                const { data, error } = await supabase
+                    .from("applications")
+                    .select("*")
+                    .order("created_at", { ascending: false });
+                
+                if (error) {
+                    report += `- applications query/table: Failed to query applications table\n`;
+                    report += `- query error (if any): ${error.message}\n`;
+                    report += `- returned rows count: 0\n`;
+                } else {
+                    report += `- applications query/table: Successfully queried applications table\n`;
+                    report += `- query error (if any): None\n`;
+                    report += `- returned rows count: ${data.length}\n`;
+                }
+            } catch (err) {
+                report += `- applications query/table: Exception during query\n`;
+                report += `- query error (if any): ${err.message}\n`;
+                report += `- returned rows count: 0\n`;
+            }
+            
+            // Display the report
+            const reportEl = document.getElementById('diagnostic-report');
+            reportEl.textContent = report;
+            
+            // Also log it
+            log('Diagnostic report generated');
+            log(report);
+            
+            return report;
+        }
+        
+        // Initialize
+        window.addEventListener('load', () => {
+            log('Admin dashboard debug tool loaded');
+            log('Project: https://supabase.com/dashboard/project/xylaoshplmsevlxzizrd');
+            checkAuth();
+            checkOAuthCallback(); // Auto-check OAuth callback
+        });
+    </script>
+</body>
+</html>
