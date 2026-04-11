@@ -14,6 +14,13 @@ import OwnerDashboard from "./pages/OwnerDashboard";
 import RequestOwner from "./pages/RequestOwner";
 import NotFound from "./pages/NotFound";
 
+// Debug environment variables
+console.log('=== Environment Variables Debug ===');
+console.log('VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL);
+console.log('VITE_SUPABASE_ANON_KEY exists:', !!import.meta.env.VITE_SUPABASE_ANON_KEY);
+console.log('VITE_SUPABASE_ANON_KEY length:', import.meta.env.VITE_SUPABASE_ANON_KEY?.length);
+console.log('===================================');
+
 const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
