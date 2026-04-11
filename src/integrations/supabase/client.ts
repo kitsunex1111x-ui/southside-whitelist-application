@@ -5,7 +5,9 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ebcgyxvtdfourg
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImViY2d5eHZ0ZGZvdXJnaGlucHB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0NzYzODgsImV4cCI6MjA5MTA1MjM4OH0.e8FaicZYXnc5yqeME8svteQbqiTSC33Zr9bS76RZn20';
 
 // Debug environment variables
-console.log("SUPABASE_URL:", supabaseUrl);
+console.log("=== SUPABASE CLIENT INIT ===");
+console.log("VITE_SUPABASE_URL env var:", import.meta.env.VITE_SUPABASE_URL);
+console.log("Using supabaseUrl:", supabaseUrl);
 console.log("SUPABASE_ANON_KEY exists:", !!supabaseAnonKey);
 console.log("SUPABASE_ANON_KEY length:", supabaseAnonKey?.length);
 
