@@ -23,11 +23,9 @@ const Auth = () => {
     console.log("Supabase client in Auth:", supabase);
     console.log("Supabase URL in Auth:", (supabase as any).supabaseUrl);
     
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'discord',
-      options: {
-        redirectTo,
-      },
+      options: { redirectTo },
     });
     
     console.log("signInWithOAuth result:", { error: error?.message });
