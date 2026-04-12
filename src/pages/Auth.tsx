@@ -21,8 +21,10 @@ const Auth = () => {
       provider: 'discord',
       options: {
         redirectTo,
+        // Force PKCE-style auth code exchange
+        flowType: 'pkce',
       },
-    });
+    } as any);
     if (error) {
       toast.error(error.message);
     }

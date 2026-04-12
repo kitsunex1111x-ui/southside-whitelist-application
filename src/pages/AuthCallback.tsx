@@ -13,17 +13,7 @@ const AuthCallback = () => {
       console.log("Current origin:", window.location.origin);
       
       try {
-        // Extract code from URL and exchange for session
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        
-        if (!code) {
-          console.warn('No auth code found in URL');
-          navigate("/auth");
-          return;
-        }
-        
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        const { data, error } = await (supabase.auth as any).getSessionFromUrl();
         
         console.log("getSessionFromUrl data:", data);
         console.log("getSessionFromUrl error:", error);
@@ -34,20 +24,20 @@ const AuthCallback = () => {
           return;
         }
         
-        // remove hash/query tokens from the URL
+        // Clean URL (removes #access_token=... if present)
         window.history.replaceState({}, document.title, window.location.pathname);
         
         if (data.session) {
           console.log("SUCCESS: Got session, redirecting to dashboard");
           console.log("Session user:", data.session.user);
           
-          // Validate session persistence
-          const sessionCheck = await supabase.auth.getSession();
-          console.log("Session after callback:", sessionCheck.data.session);
+          // Add debug check for session persistence
+          const { data: sessionCheck } = await supabase.auth.getSession();
+          console.log('session after callback', sessionCheck.session);
           
           navigate("/dashboard", { replace: true });
         } else {
-          console.warn('No session found after callback.');
+          console.warn('No session returned from callback.');
           navigate("/auth");
         }
       } catch (e) {
