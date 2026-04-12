@@ -157,7 +157,12 @@ const Apply = () => {
     
     // Validate Discord ID format
     const discordPattern = /^\d{17,19}$/;
-    if (!discordPattern.test(data.discord.replace(/\D/g, ''))) {
+    const cleanDiscord = data.discord.replace(/\D/g, '');
+    console.log("Original Discord:", data.discord);
+    console.log("Clean Discord:", cleanDiscord);
+    console.log("Discord pattern test:", discordPattern.test(cleanDiscord));
+    if (!discordPattern.test(cleanDiscord)) {
+      console.log("Discord validation failed");
       toast.error("Please enter a valid Discord ID (17-19 digits)");
       return false;
     }
