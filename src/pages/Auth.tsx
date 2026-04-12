@@ -14,7 +14,7 @@ const Auth = () => {
   const navigate = useNavigate();
 
   const handleDiscordLogin = async () => {
-    const redirectTo = `${window.location.origin}/auth/callback`;
+    const redirectTo = 'https://southside-whitelist-application.vercel.app/auth/callback';
     console.log("=== Discord Login Started ===");
     console.log("Discord login redirectTo:", redirectTo);
     console.log("Current window.location.origin:", window.location.origin);
