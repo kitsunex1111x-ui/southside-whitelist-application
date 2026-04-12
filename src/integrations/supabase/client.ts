@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 // HARDCODED CORRECT SUPABASE PROJECT - sxvfmmqrgqlinxzuvjgv
 const supabaseUrl = 'https://sxvfmmqrgqlinxzuvjgv.supabase.co';
-const supabaseAnonKey = 'YOUR_NEW_ANON_KEY_HERE'; // Get this from new Supabase project
+const supabaseAnonKey = 'sb_publishable_8pQ9kPHW74CZVjOPG3K1yA_8hWSuYxI';
 
 // Debug environment variables
 console.log("=== SUPABASE CLIENT INIT ===");
