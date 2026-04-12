@@ -28,7 +28,12 @@ const AuthCallback = () => {
         
         if (code) {
           console.log("Found auth code, exchanging for session...");
+          console.log("Using Supabase URL:", "https://ebcgyxvtdfourghinppu.supabase.co");
+          
           const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          
+          console.log("Exchange response data:", data);
+          console.log("Exchange error:", exchangeError);
           
           if (exchangeError) {
             console.error("exchangeCodeForSession error:", exchangeError);
@@ -38,9 +43,15 @@ const AuthCallback = () => {
           
           const session = data.session;
           console.log("Session after exchange:", session);
+          console.log("Session user:", session?.user);
           
-          if (session) navigate("/dashboard");
-          else navigate("/auth");
+          if (session) {
+            console.log("SUCCESS: Redirecting to dashboard");
+            navigate("/dashboard");
+          } else {
+            console.log("NO SESSION: Redirecting to auth");
+            navigate("/auth");
+          }
           
           return;
         }
