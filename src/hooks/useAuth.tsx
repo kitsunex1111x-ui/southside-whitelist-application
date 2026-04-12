@@ -27,6 +27,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     console.log("=== Fetching Roles for User ===");
     console.log("User ID:", userId);
     
+    // TEMPORARY FIX: Bypass database role fetching to get user logged in
+    // We'll fix the database issues later
+    console.log("TEMP: Assigning default 'user' role without database check");
+    setRoles(['user' as AppRole]);
+    setLoading(false);
+    
+    /* 
+    // Original role fetching code - disabled temporarily
     try {
       const { data, error } = await supabase
         .from("user_roles")
@@ -60,6 +68,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (e) {
       console.error("Error in fetchRoles:", e);
     }
+    */
   };
 
   useEffect(() => {
