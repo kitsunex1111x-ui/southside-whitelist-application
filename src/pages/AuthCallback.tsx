@@ -7,74 +7,54 @@ const AuthCallback = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const handleAuthCallback = async () => {
+    ;(async () => {
       console.log("=== AuthCallback Started ===");
       console.log("CALLBACK ROUTE loaded", window.location.href);
       console.log("Current origin:", window.location.origin);
       
       try {
-        // Handle the OAuth callback - check URL hash for access_token
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const accessToken = hashParams.get('access_token');
-        const refreshToken = hashParams.get('refresh_token');
-        const error = hashParams.get('error');
+        // Extract code from URL and exchange for session
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
         
-        console.log("Access token from hash:", !!accessToken);
-        console.log("Error from hash:", error);
-        
-        if (error) {
-          console.error('OAuth error from hash:', error);
+        if (!code) {
+          console.warn('No auth code found in URL');
           navigate("/auth");
           return;
         }
         
-        let session = null;
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
         
-        if (accessToken) {
-          // Set the session using the tokens from URL hash
-          const { data: { session: sessionData }, error: sessionError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken || ''
-          });
-          
-          console.log("Session after setSession:", sessionData);
-          console.log("Session error:", sessionError);
-          
-          if (sessionError) {
-            console.error('setSession error:', sessionError);
-            navigate("/auth");
-            return;
-          }
-          
-          session = sessionData;
-        } else {
-          // Fallback: check for existing session
-          const { data: { session: existingSession } } = await supabase.auth.getSession();
-          session = existingSession;
+        console.log("getSessionFromUrl data:", data);
+        console.log("getSessionFromUrl error:", error);
+        
+        if (error) {
+          console.error('getSessionFromUrl error:', error);
+          navigate("/auth");
+          return;
         }
         
-        console.log("Final session:", session);
+        // remove hash/query tokens from the URL
+        window.history.replaceState({}, document.title, window.location.pathname);
         
-        if (session) {
-          console.log("SUCCESS: Got session, cleaning URL and redirecting");
-          console.log("Session user:", session.user);
+        if (data.session) {
+          console.log("SUCCESS: Got session, redirecting to dashboard");
+          console.log("Session user:", data.session.user);
           
-          // Clean the URL hash to remove access_token
-          window.history.replaceState({}, document.title, window.location.pathname);
+          // Validate session persistence
+          const sessionCheck = await supabase.auth.getSession();
+          console.log("Session after callback:", sessionCheck.data.session);
           
-          // Navigate to dashboard
-          navigate("/dashboard");
+          navigate("/dashboard", { replace: true });
         } else {
-          console.log("NO SESSION: Redirecting to auth");
+          console.warn('No session found after callback.');
           navigate("/auth");
         }
       } catch (e) {
         console.error("Auth callback error:", e);
         navigate("/auth");
       }
-    };
-
-    handleAuthCallback();
+    })();
   }, [navigate]);
 
   return (
