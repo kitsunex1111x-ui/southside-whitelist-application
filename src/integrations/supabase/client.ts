@@ -22,4 +22,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Supabase URL and Anon Key are required. Please check your environment variables.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    // Important for OAuth/PKCE redirects
+    detectSessionInUrl: true,
+    // Make sure session persistence is enabled
+    persistSession: true,
+    // Keep defaults, but be explicit
+    autoRefreshToken: true,
+    flowType: "pkce",
+  },
+});
