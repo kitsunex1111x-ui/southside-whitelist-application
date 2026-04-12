@@ -24,9 +24,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    // Important for OAuth/PKCE redirects
-    detectSessionInUrl: true,
-    // Make sure session persistence is enabled
+    // Disable auto-detection to prevent auto-login
+    detectSessionInUrl: false,
+    // Keep session persistence for manual handling
     persistSession: true,
     // Keep defaults, but be explicit
     autoRefreshToken: true,

@@ -24,27 +24,48 @@ const AuthCallback = () => {
       console.log("Expected redirectTo:", `${window.location.origin}/auth/callback`);
       
       try {
-        // Let Supabase detect session from URL automatically
-        // detectSessionInUrl: true in client config handles this
-        console.log("Waiting for Supabase to detect session from URL...");
+        // Manually handle session detection from URL hash
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const error = hashParams.get('error');
         
-        // Wait a moment for Supabase to process the URL
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Check if session was established
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        console.log("Session after detectSessionInUrl:", session);
-        console.log("Session error:", error);
-        
-        // Clean URL (removes hash/params)
-        window.history.replaceState({}, document.title, window.location.pathname);
+        console.log("Access token from hash:", !!accessToken);
+        console.log("Error from hash:", error);
         
         if (error) {
-          console.error('Session detection error:', error);
+          console.error('OAuth error from hash:', error);
           navigate("/auth");
           return;
         }
+        
+        let session = null;
+        
+        if (accessToken) {
+          // Set the session using the tokens from URL hash
+          const { data: { session: sessionData }, error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || ''
+          });
+          
+          console.log("Session after setSession:", sessionData);
+          console.log("Session error:", sessionError);
+          
+          if (sessionError) {
+            console.error('setSession error:', sessionError);
+            navigate("/auth");
+            return;
+          }
+          
+          session = sessionData;
+        } else {
+          console.warn('No access token found in URL hash');
+          navigate("/auth");
+          return;
+        }
+        
+        // Clean URL (removes hash/params)
+        window.history.replaceState({}, document.title, window.location.pathname);
         
         if (session) {
           console.log("SUCCESS: Got session, redirecting to dashboard");
@@ -64,11 +85,7 @@ const AuthCallback = () => {
           
           navigate("/dashboard", { replace: true });
         } else {
-          console.warn('No session detected from URL.');
-          console.warn('This usually indicates:');
-          console.warn('1. detectSessionInUrl not working');
-          console.warn('2. Callback URL mismatch');
-          console.warn('3. Session storage issues');
+          console.warn('No session established after callback.');
           navigate("/auth");
         }
       } catch (e) {
