@@ -311,6 +311,7 @@ const Apply = () => {
                   ) : (
                     <button
                       onClick={() => {
+                        alert("Button clicked!");
                         console.log("Submit button clicked");
                         const ok = canSubmit();
                         console.log("canSubmit() =", ok);
