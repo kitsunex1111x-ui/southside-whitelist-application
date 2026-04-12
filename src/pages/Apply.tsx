@@ -154,15 +154,15 @@ const Apply = () => {
     console.log("=== Submit Application Debug Started ===");
     
     if (!user) {
-      console.error("No user logged in");
+      console.error("No user logged in", { user });
       toast.error("Please sign in to submit application");
       return;
     }
-    
-    console.log("User logged in:", user.id, user.email);
-    
-    if (!validateForm()) {
-      console.error("Form validation failed");
+    console.log("User logged in:", { id: user.id, email: user.email });
+    const valid = validateForm();
+    console.log("validateForm() =", valid, "form data =", data);
+    if (!valid) {
+      console.error("Form validation failed (see validateForm logs)");
       return;
     }
     
@@ -311,9 +311,10 @@ const Apply = () => {
                   ) : (
                     <button
                       onClick={() => {
-                        if (canSubmit()) {
-                          handleSubmit();
-                        }
+                        console.log("Submit button clicked");
+                        const ok = canSubmit();
+                        console.log("canSubmit() =", ok);
+                        if (ok) handleSubmit();
                       }}
                       disabled={submitting}
                       className="flex items-center gap-2 gradient-red text-primary-foreground px-8 py-2 rounded-md font-heading uppercase tracking-wide text-sm hover:box-glow-red transition-all disabled:opacity-70"
