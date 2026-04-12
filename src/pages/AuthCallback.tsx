@@ -24,45 +24,62 @@ const AuthCallback = () => {
       console.log("Expected redirectTo:", `${window.location.origin}/auth/callback`);
       
       try {
-        // Extract code from URL parameters
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
+        // For implicit flow, check URL hash for access_token
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const error = hashParams.get('error');
         
-        console.log("Extracted auth code:", !!code);
-        
-        if (!code) {
-          console.error('No auth code found in URL');
-          navigate("/auth");
-          return;
-        }
-        
-        // Exchange code for session using the correct method
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-        
-        console.log("exchangeCodeForSession data:", data);
-        console.log("exchangeCodeForSession error:", error);
+        console.log("Access token from hash:", !!accessToken);
+        console.log("Error from hash:", error);
         
         if (error) {
-          console.error('exchangeCodeForSession error:', error);
-          console.error('Error details:', JSON.stringify(error, null, 2));
+          console.error('OAuth error from hash:', error);
           navigate("/auth");
           return;
         }
         
-        // Clean URL (removes code parameter)
+        let session = null;
+        
+        if (accessToken) {
+          // Set the session using the tokens from URL hash
+          const { data: { session: sessionData }, error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || ''
+          });
+          
+          console.log("Session after setSession:", sessionData);
+          console.log("Session error:", sessionError);
+          
+          if (sessionError) {
+            console.error('setSession error:', sessionError);
+            navigate("/auth");
+            return;
+          }
+          
+          session = sessionData;
+        } else {
+          // Fallback: check for existing session
+          const { data: { session: existingSession } } = await supabase.auth.getSession();
+          session = existingSession;
+        }
+        
+        console.log("Final session:", session);
+        
+        // Clean URL (removes #access_token=... if present)
         window.history.replaceState({}, document.title, window.location.pathname);
         
-        if (data.session) {
+        if (session) {
           console.log("SUCCESS: Got session, redirecting to dashboard");
-          console.log("Session user:", data.session.user);
-          console.log("Session expires at:", data.session.expires_at);
+          console.log("Session user:", session.user);
+          console.log("Session expires at:", session.expires_at);
           
           // Add debug check for session persistence
           const { data: sessionCheck } = await supabase.auth.getSession();
           console.log('session after callback', sessionCheck.session);
           
           // Debug: Check if session matches
-          if (sessionCheck.session?.user?.id === data.session?.user?.id) {
+          if (sessionCheck.session?.user?.id === session?.user?.id) {
             console.log("Session persistence: MATCHING");
           } else {
             console.error("Session persistence: MISMATCH!");
@@ -70,7 +87,7 @@ const AuthCallback = () => {
           
           navigate("/dashboard", { replace: true });
         } else {
-          console.warn('No session returned from callback.');
+          console.warn('No session found after callback.');
           console.warn('This usually indicates:');
           console.warn('1. Multiple Supabase client instances');
           console.warn('2. Callback URL mismatch');

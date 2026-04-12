@@ -30,6 +30,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     // Keep defaults, but be explicit
     autoRefreshToken: true,
-    flowType: "pkce",
+    // Use implicit flow to avoid PKCE verifier issues
+    flowType: "implicit",
   },
 });
