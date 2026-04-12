@@ -14,10 +14,13 @@ const Auth = () => {
   const navigate = useNavigate();
 
   const handleDiscordLogin = async () => {
+    const redirectTo = `${window.location.origin}/auth/callback`;
+    console.log("Discord login redirectTo:", redirectTo);
+    
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'discord',
       options: {
-        redirectTo: 'https://southside-whitelist-application.vercel.app/auth/callback',
+        redirectTo,
       },
     });
     if (error) {

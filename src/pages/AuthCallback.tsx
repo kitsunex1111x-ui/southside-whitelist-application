@@ -9,10 +9,11 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       console.log("=== AuthCallback Started ===");
-      console.log("CALLBACK ROUTE v2 loaded", window.location.href);
+      console.log("CALLBACK ROUTE loaded", window.location.href);
       console.log("Current origin:", window.location.origin);
       
       try {
+        // Extract code from URL and exchange for session
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
         const error = urlParams.get('error');
@@ -26,44 +27,31 @@ const AuthCallback = () => {
           return;
         }
         
-        if (code) {
-          console.log("Found auth code, exchanging for session...");
-          console.log("Using Supabase URL:", "https://ebcgyxvtdfourghinppu.supabase.co");
-          
-          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-          
-          console.log("Exchange response data:", data);
-          console.log("Exchange error:", exchangeError);
-          
-          if (exchangeError) {
-            console.error("exchangeCodeForSession error:", exchangeError);
-            navigate("/auth");
-            return;
-          }
-          
-          const session = data.session;
-          console.log("Session after exchange:", session);
-          console.log("Session user:", session?.user);
-          
-          if (session) {
-            console.log("SUCCESS: Redirecting to dashboard");
-            navigate("/dashboard");
-          } else {
-            console.log("NO SESSION: Redirecting to auth");
-            navigate("/auth");
-          }
-          
+        if (!code) {
+          console.log("No auth code found");
+          navigate("/auth");
           return;
         }
         
-        // No code: just check existing session
-        const { data: { session } } = await supabase.auth.getSession();
+        // Exchange the code for a session
+        const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        const session = data.session;
+        
+        console.log("Session after exchange:", session);
+        console.log("Exchange error:", exchangeError);
+        
+        if (exchangeError) {
+          console.error('exchangeCodeForSession error:', exchangeError);
+          navigate("/auth");
+          return;
+        }
         
         if (session) {
-          console.log("Already have session:", session.user.email);
+          console.log("SUCCESS: Got session, redirecting to dashboard");
+          console.log("Session user:", session.user);
           navigate("/dashboard");
         } else {
-          console.log("No auth code or session");
+          console.log("NO SESSION: Redirecting to auth");
           navigate("/auth");
         }
       } catch (e) {
