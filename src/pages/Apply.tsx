@@ -110,6 +110,11 @@ const Apply = () => {
     console.log("Current form data:", data);
     console.log("User logged in:", !!user);
     
+    // TEMP: Bypass validation to test handleSubmit
+    console.log("TEMP: Bypassing validation for testing");
+    console.log("=== canSubmit() ended ===");
+    return true;
+    
     // Use validateForm instead of validateStep to avoid triggering error toasts
     const result = validateForm();
     console.log("validateForm() result:", result);
