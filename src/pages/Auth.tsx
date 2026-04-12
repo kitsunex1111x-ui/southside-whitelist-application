@@ -27,10 +27,8 @@ const Auth = () => {
       provider: 'discord',
       options: {
         redirectTo,
-        // Force PKCE-style auth code exchange
-        flowType: 'pkce',
       },
-    } as any);
+    });
     
     console.log("signInWithOAuth result:", { error: error?.message });
     
