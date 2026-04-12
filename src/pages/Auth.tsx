@@ -15,7 +15,13 @@ const Auth = () => {
 
   const handleDiscordLogin = async () => {
     const redirectTo = `${window.location.origin}/auth/callback`;
+    console.log("=== Discord Login Started ===");
     console.log("Discord login redirectTo:", redirectTo);
+    console.log("Current window.location.origin:", window.location.origin);
+    
+    // Debug: Check Supabase client instance
+    console.log("Supabase client in Auth:", supabase);
+    console.log("Supabase URL in Auth:", (supabase as any).supabaseUrl);
     
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'discord',
@@ -25,6 +31,9 @@ const Auth = () => {
         flowType: 'pkce',
       },
     } as any);
+    
+    console.log("signInWithOAuth result:", { error: error?.message });
+    
     if (error) {
       toast.error(error.message);
     }
