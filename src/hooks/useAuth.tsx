@@ -25,32 +25,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchRoles = async (userId: string) => {
     console.log("=== Fetching Roles for User ===");
-    const { data } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
+    console.log("User ID:", userId);
     
-    const userRoles = data?.map((r) => r.role) ?? [];
-    
-    // If user has no roles, assign a basic user role
-    if (userRoles.length === 0) {
-      console.log("No roles found, assigning 'user' role...");
-      const { error: insertError } = await supabase
+    try {
+      const { data, error } = await supabase
         .from("user_roles")
-        .insert({ user_id: userId, role: "user" });
+        .select("role")
+        .eq("user_id", userId);
       
-      console.log("Insert error:", insertError);
+      console.log("Roles query data:", data);
+      console.log("Roles query error:", error);
       
-      if (!insertError) {
-        userRoles.push("user");
-        console.log("Successfully assigned 'user' role");
-      } else {
-        console.error("Failed to assign role:", insertError);
+      const userRoles = data?.map((r) => r.role) ?? [];
+      
+      // If user has no roles, assign a basic user role
+      if (userRoles.length === 0) {
+        console.log("No roles found, assigning 'user' role...");
+        const { error: insertError } = await supabase
+          .from("user_roles")
+          .insert({ user_id: userId, role: "user" });
+        
+        console.log("Insert error:", insertError);
+        
+        if (!insertError) {
+          userRoles.push("user");
+          console.log("Successfully assigned 'user' role");
+        } else {
+          console.error("Failed to assign role:", insertError);
+        }
       }
+      
+      console.log("Final user roles:", userRoles);
+      setRoles(userRoles);
+    } catch (e) {
+      console.error("Error in fetchRoles:", e);
     }
-    
-    console.log("Final user roles:", userRoles);
-    setRoles(userRoles);
   };
 
   useEffect(() => {
