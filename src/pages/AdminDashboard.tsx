@@ -119,12 +119,45 @@ const AdminDashboard = () => {
       } else {
         console.log("Update successful, adding to admin logs...");
         
-        // Fetch application data to get display name
+        // Fetch application data to get user_id and display name
         const { data: appData } = await supabase
           .from("applications")
-          .select("discord, char_name")
+          .select("user_id, discord, char_name")
           .eq("id", id)
           .single();
+        
+        // If application was accepted, automatically assign 'accepted' role
+        if (status === "accepted" && appData?.user_id) {
+          console.log("Assigning 'accepted' role to user:", appData.user_id);
+          
+          // Check if user already has 'accepted' role
+          const { data: existingRoles } = await supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", appData.user_id)
+            .eq("role", "accepted");
+          
+          // Only assign if they don't already have the role
+          if (!existingRoles || existingRoles.length === 0) {
+            const { error: roleError } = await supabase
+              .from("user_roles")
+              .insert({
+                user_id: appData.user_id,
+                role: "accepted"
+              });
+            
+            if (roleError) {
+              console.error("Failed to assign accepted role:", roleError);
+              toast.error("Application accepted but failed to assign role");
+            } else {
+              console.log("Successfully assigned 'accepted' role");
+              toast.success("Application accepted and role assigned!");
+            }
+          } else {
+            console.log("User already has 'accepted' role");
+            toast.success("Application accepted!");
+          }
+        }
         
         // Add to admin logs with proper display name
         const { error: logError } = await supabase.from("admin_logs").insert({
