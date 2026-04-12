@@ -140,14 +140,18 @@ const Apply = () => {
     
     // Safe age validation - prevent valueAsNumber errors
     const ageStr = String(data.age).trim();
+    console.log("Age string:", ageStr);
     if (!ageStr) {
+      console.log("Age validation failed - empty age");
       toast.error("Please enter your age");
       return false;
     }
     
     const ageNum = parseInt(ageStr, 10);
-    if (isNaN(ageNum) || ageNum < 13 || ageNum > 100) {
-      toast.error("Please enter a valid age between 13 and 100");
+    console.log("Parsed age number:", ageNum);
+    if (isNaN(ageNum) || ageNum < 1 || ageNum > 100) {
+      console.log("Age validation failed - invalid age:", ageNum);
+      toast.error("Please enter a valid age between 1 and 100");
       return false;
     }
     
