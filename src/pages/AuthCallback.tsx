@@ -24,19 +24,32 @@ const AuthCallback = () => {
       console.log("Expected redirectTo:", `${window.location.origin}/auth/callback`);
       
       try {
-        const { data, error } = await (supabase.auth as any).getSessionFromUrl();
+        // Extract code from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
         
-        console.log("getSessionFromUrl data:", data);
-        console.log("getSessionFromUrl error:", error);
+        console.log("Extracted auth code:", !!code);
+        
+        if (!code) {
+          console.error('No auth code found in URL');
+          navigate("/auth");
+          return;
+        }
+        
+        // Exchange code for session using the correct method
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        
+        console.log("exchangeCodeForSession data:", data);
+        console.log("exchangeCodeForSession error:", error);
         
         if (error) {
-          console.error('getSessionFromUrl error:', error);
+          console.error('exchangeCodeForSession error:', error);
           console.error('Error details:', JSON.stringify(error, null, 2));
           navigate("/auth");
           return;
         }
         
-        // Clean URL (removes #access_token=... if present)
+        // Clean URL (removes code parameter)
         window.history.replaceState({}, document.title, window.location.pathname);
         
         if (data.session) {
