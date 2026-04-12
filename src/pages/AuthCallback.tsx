@@ -13,42 +13,56 @@ const AuthCallback = () => {
       console.log("Current origin:", window.location.origin);
       
       try {
-        // Extract code from URL and exchange for session
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        const error = urlParams.get('error');
+        // Handle the OAuth callback - check URL hash for access_token
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const error = hashParams.get('error');
         
-        console.log("Auth code:", code);
-        console.log("Auth error:", error);
+        console.log("Access token from hash:", !!accessToken);
+        console.log("Error from hash:", error);
         
         if (error) {
-          console.error("OAuth error from URL:", error);
+          console.error('OAuth error from hash:', error);
           navigate("/auth");
           return;
         }
         
-        if (!code) {
-          console.log("No auth code found");
-          navigate("/auth");
-          return;
+        let session = null;
+        
+        if (accessToken) {
+          // Set the session using the tokens from URL hash
+          const { data: { session: sessionData }, error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || ''
+          });
+          
+          console.log("Session after setSession:", sessionData);
+          console.log("Session error:", sessionError);
+          
+          if (sessionError) {
+            console.error('setSession error:', sessionError);
+            navigate("/auth");
+            return;
+          }
+          
+          session = sessionData;
+        } else {
+          // Fallback: check for existing session
+          const { data: { session: existingSession } } = await supabase.auth.getSession();
+          session = existingSession;
         }
         
-        // Exchange the code for a session
-        const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-        const session = data.session;
-        
-        console.log("Session after exchange:", session);
-        console.log("Exchange error:", exchangeError);
-        
-        if (exchangeError) {
-          console.error('exchangeCodeForSession error:', exchangeError);
-          navigate("/auth");
-          return;
-        }
+        console.log("Final session:", session);
         
         if (session) {
-          console.log("SUCCESS: Got session, redirecting to dashboard");
+          console.log("SUCCESS: Got session, cleaning URL and redirecting");
           console.log("Session user:", session.user);
+          
+          // Clean the URL hash to remove access_token
+          window.history.replaceState({}, document.title, window.location.pathname);
+          
+          // Navigate to dashboard
           navigate("/dashboard");
         } else {
           console.log("NO SESSION: Redirecting to auth");
