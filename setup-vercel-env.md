@@ -15,12 +15,12 @@ Add these EXACT variables:
 ### Required Variables:
 ```
 Name: VITE_SUPABASE_URL
-Value: https://ebcgyxvtdfourghinppu.supabase.co
+Value: https://sxvfmmqrgqlinxzuvjgv.supabase.co
 ```
 
 ```
 Name: VITE_SUPABASE_ANON_KEY
-Value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImViY2d5eHZ0ZGZvdXJnaGlucHB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0NzYzODgsImV4cCI6MjA5MTA1MjM4OH0.e8FaicZYXnc5yqeME8svteQbqiTSC33Zr9bS76RZn20
+Value: sb_publishable_8pQ9kPHW74CZVjOPG3K1yA_8hWSuYxI
 ```
 
 ## Step 3: Redeploy
