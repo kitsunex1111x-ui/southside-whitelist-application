@@ -106,15 +106,8 @@ const Apply = () => {
   };
 
   const canSubmit = () => {
-    // Validate all steps before submission
-    let isValid = true;
-    for (let i = 0; i <= 2; i++) {
-      if (!validateStep(i)) {
-        setValidationAttempts(prev => ({ ...prev, [i]: true }));
-        isValid = false;
-      }
-    }
-    return isValid;
+    // Use validateForm instead of validateStep to avoid triggering error toasts
+    return validateForm();
   };
 
   const validateForm = () => {
@@ -311,7 +304,6 @@ const Apply = () => {
                   ) : (
                     <button
                       onClick={() => {
-                        alert("Button clicked!");
                         console.log("Submit button clicked");
                         const ok = canSubmit();
                         console.log("canSubmit() =", ok);
