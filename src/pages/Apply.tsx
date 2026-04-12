@@ -106,16 +106,29 @@ const Apply = () => {
   };
 
   const canSubmit = () => {
+    console.log("=== canSubmit() started ===");
+    console.log("Current form data:", data);
+    console.log("User logged in:", !!user);
+    
     // Use validateForm instead of validateStep to avoid triggering error toasts
-    return validateForm();
+    const result = validateForm();
+    console.log("validateForm() result:", result);
+    console.log("=== canSubmit() ended ===");
+    return result;
   };
 
   const validateForm = () => {
+    console.log("=== validateForm() started ===");
     // Check all required fields
     const requiredFields = ['realName', 'discord', 'age', 'rdm', 'vdm', 'metagaming', 'powergaming', 'charName', 'backstory', 'traits'];
+    console.log("Required fields:", requiredFields);
+    console.log("Field values:", requiredFields.map(field => ({ [field]: data[field as keyof FormData] })));
+    
     const missingFields = requiredFields.filter(field => !data[field as keyof FormData].trim());
+    console.log("Missing fields:", missingFields);
     
     if (missingFields.length > 0) {
+      console.log("Validation failed - missing fields:", missingFields);
       toast.error(`Please fill in all required fields: ${missingFields.join(', ')}`);
       return false;
     }
