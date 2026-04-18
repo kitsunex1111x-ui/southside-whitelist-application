@@ -39,6 +39,7 @@ const AdminDashboard = () => {
   const [filter, setFilter] = useState<Status | "all">("all");
   const [notesModal, setNotesModal] = useState<{ id: string; notes: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
 
   const fetchApps = async () => {
     try {
@@ -58,6 +59,23 @@ const AdminDashboard = () => {
         setApps([]);
       } else {
         setApps(data ?? []);
+        
+        // Fetch user avatars for applications
+        if (data && data.length > 0) {
+          const userIds = [...new Set(data.map(app => app.user_id).filter(Boolean))];
+          if (userIds.length > 0) {
+            const { data: profiles } = await supabase
+              .from("profiles")
+              .select("user_id, avatar_url")
+              .in("user_id", userIds);
+            
+            const avatarMap: Record<string, string> = {};
+            profiles?.forEach(p => {
+              if (p.avatar_url) avatarMap[p.user_id] = p.avatar_url;
+            });
+            setUserAvatars(avatarMap);
+          }
+        }
       }
     } catch (err) {
       toast.error("An unexpected error occurred while fetching applications");
@@ -287,9 +305,25 @@ const AdminDashboard = () => {
                 <div key={app.id} className="bg-card border border-border rounded-xl p-6 animate-fade-in">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full gradient-red flex items-center justify-center font-heading text-lg font-bold text-primary-foreground">
-                        {app.char_name[0]?.toUpperCase()}
-                      </div>
+                      {userAvatars[app.user_id] ? (
+                        <img 
+                          src={userAvatars[app.user_id]} 
+                          alt={app.char_name}
+                          className="w-12 h-12 rounded-full object-cover border-2 border-primary/30"
+                          onError={(e) => {
+                            // Fallback to placeholder on image error
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            const parent = (e.target as HTMLImageElement).parentElement;
+                            if (parent) {
+                              parent.innerHTML = `<div class="w-12 h-12 rounded-full gradient-red flex items-center justify-center font-heading text-lg font-bold text-primary-foreground">${app.char_name[0]?.toUpperCase()}</div>`;
+                            }
+                          }}
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full gradient-red flex items-center justify-center font-heading text-lg font-bold text-primary-foreground">
+                          {app.char_name[0]?.toUpperCase()}
+                        </div>
+                      )}
                       <div>
                         <h3 className="font-heading text-lg font-semibold">{app.char_name}</h3>
                         <div className="flex items-center gap-2">
