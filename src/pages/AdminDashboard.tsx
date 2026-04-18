@@ -41,14 +41,8 @@ const AdminDashboard = () => {
   const [saving, setSaving] = useState(false);
 
   const fetchApps = async () => {
-    console.log("=== Fetching applications ===");
-    console.log("Filter:", filter);
-    console.log("Is admin:", isAdmin);
-    console.log("User:", user?.email);
-    
     try {
       if (!user || !isAdmin) {
-        console.error("No admin access for fetchApps");
         setApps([]);
         setLoading(false);
         return;
@@ -59,14 +53,10 @@ const AdminDashboard = () => {
       
       const { data, error } = await q;
       
-      console.log("FetchApps result:", { data, error });
-      
       if (error) {
-        console.error("FetchApps error:", error);
         toast.error(`Failed to fetch applications: ${error.message}`);
         setApps([]);
       } else {
-        console.log(`Successfully fetched ${data?.length || 0} applications`);
         setApps(data ?? []);
       }
     } catch (err) {
@@ -86,21 +76,14 @@ const AdminDashboard = () => {
   if (!isAdmin) return <Navigate to="/dashboard" />;
 
   const updateStatus = async (id: string, status: Status) => {
-    console.log(`=== Updating application ${id} to ${status} ===`);
     setSaving(true);
     
     try {
-      // First verify admin access
       if (!user || !isAdmin) {
-        console.error("No admin access for update");
         toast.error("Admin access required");
         setSaving(false);
         return;
       }
-      
-      console.log("User ID:", user.id);
-      console.log("Application ID:", id);
-      console.log("New status:", status);
       
       const { data, error } = await supabase
         .from("applications")
@@ -111,14 +94,9 @@ const AdminDashboard = () => {
         .eq("id", id)
         .select();
 
-      console.log("Update result:", { data, error });
-
       if (error) {
-        console.error("Update error:", error);
         toast.error(`Failed to update: ${error.message}`);
       } else {
-        console.log("Update successful, adding to admin logs...");
-        
         // Fetch application data to get user_id and display name
         const { data: appData } = await supabase
           .from("applications")
@@ -126,10 +104,8 @@ const AdminDashboard = () => {
           .eq("id", id)
           .single();
         
-        // If application was accepted, automatically assign 'accepted' role
+        // If application was accepted, assign 'accepted' role and sync Discord
         if (status === "accepted" && appData?.user_id) {
-          console.log("Assigning 'accepted' role to user:", appData.user_id);
-          
           // Check if user already has 'accepted' role
           const { data: existingRoles } = await supabase
             .from("user_roles")
@@ -137,30 +113,53 @@ const AdminDashboard = () => {
             .eq("user_id", appData.user_id)
             .eq("role", "accepted");
           
-          // Only assign if they don't already have the role
+          // Sync Discord role
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+              const { error: syncError } = await supabase.functions.invoke(
+                "sync-discord-roles",
+                {
+                  method: 'POST',
+                  body: { userId: appData.user_id, action: 'accepted' },
+                }
+              );
+              if (syncError) console.error("Discord sync error:", syncError);
+            }
+          } catch (syncErr) {
+            console.error("Discord sync exception:", syncErr);
+          }
+          
+          // Only assign role in database if they don't already have it
           if (!existingRoles || existingRoles.length === 0) {
             const { error: roleError } = await supabase
               .from("user_roles")
-              .insert({
-                user_id: appData.user_id,
-                role: "accepted"
-              });
-            
+              .insert({ user_id: appData.user_id, role: "accepted" });
             if (roleError) {
               console.error("Failed to assign accepted role:", roleError);
               toast.error("Application accepted but failed to assign role");
-            } else {
-              console.log("Successfully assigned 'accepted' role");
-              toast.success("Application accepted and role assigned!");
             }
-          } else {
-            console.log("User already has 'accepted' role");
-            toast.success("Application accepted!");
+          }
+        }
+
+        // If application was rejected, sync Discord role in one call
+        if (status === "rejected" && appData?.user_id) {
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+              const { error: syncError } = await supabase.functions.invoke(
+                "sync-discord-roles",
+                { method: 'POST', body: { userId: appData.user_id, action: 'rejected' } }
+              );
+              if (syncError) console.error("Discord rejected sync error:", syncError);
+            }
+          } catch (syncErr) {
+            console.error("Discord sync exception:", syncErr);
           }
         }
         
-        // Add to admin logs with proper display name
-        const { error: logError } = await supabase.from("admin_logs").insert({
+        // Add to admin logs
+        await supabase.from("admin_logs").insert({
           actor_user_id: user.id,
           action: status === "accepted" ? "accept_application" : "reject_application",
           target_id: id,
@@ -175,12 +174,6 @@ const AdminDashboard = () => {
           },
         });
         
-        if (logError) {
-          console.error("Log error:", logError);
-        } else {
-          console.log("Admin log added successfully");
-        }
-        
         toast.success(`Application ${status} successfully!`);
         fetchApps();
       }
@@ -193,23 +186,17 @@ const AdminDashboard = () => {
   };
 
   const saveNotes = async () => {
-    console.log("=== Saving admin notes ===");
     if (!notesModal) return;
     setSaving(true);
     
     try {
-      // First verify admin access
       if (!user || !isAdmin) {
-        console.error("No admin access for notes");
         toast.error("Admin access required");
         setSaving(false);
         return;
       }
       
-      console.log("Saving notes for application:", notesModal.id);
-      console.log("Notes content:", notesModal.notes);
-      
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("applications")
         .update({ 
           admin_notes: notesModal.notes,
@@ -217,27 +204,16 @@ const AdminDashboard = () => {
         })
         .eq("id", notesModal.id);
 
-      console.log("Notes update result:", { data, error });
-
       if (error) {
-        console.error("Notes update error:", error);
         toast.error(`Failed to save notes: ${error.message}`);
       } else {
-        console.log("Notes update successful, adding to admin logs...");
-        
         // Add to admin logs
-        const { error: logError } = await supabase.from("admin_logs").insert({
+        await supabase.from("admin_logs").insert({
           actor_user_id: user.id,
           action: "add_notes",
           target_id: notesModal.id,
           details: { notes: notesModal.notes, application_id: notesModal.id },
         });
-        
-        if (logError) {
-          console.error("Notes log error:", logError);
-        } else {
-          console.log("Notes admin log added successfully");
-        }
         
         toast.success("Notes saved successfully!");
         setNotesModal(null);

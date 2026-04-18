@@ -23,69 +23,73 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchRoles = async (userId: string) => {
-    console.log("=== Fetching Roles for User ===");
-    console.log("User ID:", userId);
-    
+  const fetchRoles = async (userId: string): Promise<AppRole[]> => {
     try {
-      const { data, error } = await supabase
+      const { data: roleData, error: roleError } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", userId);
-      
-      console.log("Roles query data:", data);
-      console.log("Roles query error:", error);
-      
-      const userRoles = data?.map((r) => r.role) ?? [];
-      
-      // If user has no roles, assign a basic user role
+
+      if (roleError) {
+        console.error("Failed to fetch roles:", roleError);
+        return [];
+      }
+
+      const userRoles: AppRole[] = roleData?.map((r) => r.role) ?? [];
+
       if (userRoles.length === 0) {
-        console.log("No roles found, assigning 'user' role...");
         const { error: insertError } = await supabase
           .from("user_roles")
           .insert({ user_id: userId, role: "user" });
-        
-        console.log("Insert error:", insertError);
-        
         if (!insertError) {
           userRoles.push("user");
-          console.log("Successfully assigned 'user' role");
         } else {
-          console.error("Failed to assign role:", insertError);
+          console.error("Failed to assign default role:", insertError);
         }
       }
-      
-      console.log("Final user roles:", userRoles);
-      setRoles(userRoles);
+
+      return userRoles;
     } catch (e) {
       console.error("Error in fetchRoles:", e);
+      return [];
     }
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          setTimeout(() => fetchRoles(session.user.id), 0);
-        } else {
-          setRoles([]);
-        }
-        setLoading(false);
-      }
-    );
+    let mounted = true;
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Initial session load
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!mounted) return;
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchRoles(session.user.id);
+        const userRoles = await fetchRoles(session.user.id);
+        if (mounted) setRoles(userRoles);
       }
-      setLoading(false);
+      if (mounted) setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    // Auth state changes (login, logout, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        if (!mounted) return;
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          const userRoles = await fetchRoles(session.user.id);
+          if (mounted) setRoles(userRoles);
+        } else {
+          setRoles([]);
+        }
+        if (mounted) setLoading(false);
+      }
+    );
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {

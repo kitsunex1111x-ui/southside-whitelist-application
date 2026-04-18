@@ -37,25 +37,30 @@ const stats = [
   { label: "Founded", value: 2026 },
 ];
 
+// Individual stat card — hooks called at component level (valid)
+const StatCard = ({ label, value }: { label: string; value: number }) => {
+  const { count, ref } = useCountUp(value);
+  return (
+    <div ref={ref} className="text-center">
+      <div className="font-heading text-5xl md:text-6xl font-bold text-primary text-glow-red">
+        {label === "Founded" ? count : count.toLocaleString()}
+        {label !== "Founded" && <span className="text-primary">+</span>}
+      </div>
+      <div className="text-muted-foreground mt-2 uppercase tracking-wider text-sm">
+        {label}
+      </div>
+    </div>
+  );
+};
+
 const LiveCounters = () => {
   return (
     <section className="py-16 border-y border-border">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {stats.map((stat) => {
-            const { count, ref } = useCountUp(stat.value);
-            return (
-              <div key={stat.label} ref={ref} className="text-center">
-                <div className="font-heading text-5xl md:text-6xl font-bold text-primary text-glow-red">
-                  {stat.label === "Founded" ? count : count.toLocaleString()}
-                  {stat.label !== "Founded" && <span className="text-primary">+</span>}
-                </div>
-                <div className="text-muted-foreground mt-2 uppercase tracking-wider text-sm">
-                  {stat.label}
-                </div>
-              </div>
-            );
-          })}
+          {stats.map((stat) => (
+            <StatCard key={stat.label} label={stat.label} value={stat.value} />
+          ))}
         </div>
       </div>
     </section>

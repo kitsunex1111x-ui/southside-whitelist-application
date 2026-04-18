@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -14,8 +15,6 @@ import OwnerDashboard from "./pages/OwnerDashboard";
 import RequestOwner from "./pages/RequestOwner";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
-
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   if (loading) return null;
@@ -23,28 +22,48 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter future={{ v7_startTransition: true }}>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/apply" element={<ProtectedRoute><Apply /></ProtectedRoute>} />
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-            <Route path="/owner" element={<ProtectedRoute><OwnerDashboard /></ProtectedRoute>} />
-            <Route path="/request-owner" element={<ProtectedRoute><RequestOwner /></ProtectedRoute>} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, isAdmin, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/auth" />;
+  if (!isAdmin) return <Navigate to="/dashboard" />;
+  return <>{children}</>;
+};
+
+const OwnerRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, isOwner, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/auth" />;
+  if (!isOwner) return <Navigate to="/dashboard" />;
+  return <>{children}</>;
+};
+
+const App = () => {
+  const [queryClient] = useState(() => new QueryClient());
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter future={{ v7_startTransition: true }}>
+          <AuthProvider>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/apply" element={<ProtectedRoute><Apply /></ProtectedRoute>} />
+              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+              <Route path="/owner" element={<OwnerRoute><OwnerDashboard /></OwnerRoute>} />
+              <Route path="/request-owner" element={<ProtectedRoute><RequestOwner /></ProtectedRoute>} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

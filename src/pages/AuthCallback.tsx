@@ -7,93 +7,91 @@ const AuthCallback = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    ;(async () => {
-      console.log("=== AuthCallback Started ===");
-      console.log("CALLBACK ROUTE loaded", window.location.href);
-      console.log("Current origin:", window.location.origin);
-      
-      // Debug: Check for multiple Supabase clients
-      console.log("Supabase client instance:", supabase);
-      console.log("Supabase URL in callback:", (supabase as any).supabaseUrl);
-      
-      // Debug: Check URL parameters and hash
-      const urlParams = new URLSearchParams(window.location.search);
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      console.log("URL search params:", Object.fromEntries(urlParams.entries()));
-      console.log("URL hash params:", Object.fromEntries(hashParams.entries()));
-      console.log("Expected redirectTo:", `${window.location.origin}/auth/callback`);
-      
+    let cancelled = false;
+
+    const handleCallback = async () => {
       try {
-        // Manually handle session detection from URL hash
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const accessToken = hashParams.get('access_token');
-        const refreshToken = hashParams.get('refresh_token');
-        const error = hashParams.get('error');
-        
-        console.log("Access token from hash:", !!accessToken);
-        console.log("Error from hash:", error);
-        
+        const hash = window.location.hash;
+        const search = window.location.search;
+
+        // Check for OAuth error in hash or query string
+        const hashParams = new URLSearchParams(hash.substring(1));
+        const queryParams = new URLSearchParams(search);
+        const error = hashParams.get("error") || queryParams.get("error");
+
         if (error) {
-          console.error('OAuth error from hash:', error);
-          navigate("/auth");
+          const desc = hashParams.get("error_description") || queryParams.get("error_description") || error;
+          console.error("OAuth error:", desc);
+          if (!cancelled) navigate("/auth");
           return;
         }
-        
-        let session = null;
-        
+
+        // Path 1: Implicit flow — tokens in URL hash
+        const accessToken = hashParams.get("access_token");
+        const refreshToken = hashParams.get("refresh_token");
+
         if (accessToken) {
-          // Set the session using the tokens from URL hash
-          const { data: { session: sessionData }, error: sessionError } = await supabase.auth.setSession({
+          const { data: { session }, error: sessionError } = await supabase.auth.setSession({
             access_token: accessToken,
-            refresh_token: refreshToken || ''
+            refresh_token: refreshToken || "",
           });
-          
-          console.log("Session after setSession:", sessionData);
-          console.log("Session error:", sessionError);
-          
+
           if (sessionError) {
-            console.error('setSession error:', sessionError);
-            navigate("/auth");
+            console.error("setSession error:", sessionError);
+            if (!cancelled) navigate("/auth");
             return;
           }
-          
-          session = sessionData;
-        } else {
-          console.warn('No access token found in URL hash');
-          navigate("/auth");
+
+          // Clean URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+
+          if (session && !cancelled) {
+            navigate("/dashboard", { replace: true });
+          } else if (!cancelled) {
+            navigate("/auth");
+          }
           return;
         }
-        
-        // Clean URL (removes hash/params)
-        window.history.replaceState({}, document.title, window.location.pathname);
-        
-        if (session) {
-          console.log("SUCCESS: Got session, redirecting to dashboard");
-          console.log("Session user:", session.user);
-          console.log("Session expires at:", session.expires_at);
-          
-          // Add debug check for session persistence
-          const { data: sessionCheck } = await supabase.auth.getSession();
-          console.log('session after callback', sessionCheck.session);
-          
-          // Debug: Check if session matches
-          if (sessionCheck.session?.user?.id === session?.user?.id) {
-            console.log("Session persistence: MATCHING");
-          } else {
-            console.error("Session persistence: MISMATCH!");
+
+        // Path 2: PKCE / code flow — code in query string
+        const code = queryParams.get("code");
+        if (code) {
+          const { data: { session }, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+
+          if (exchangeError) {
+            console.error("Code exchange error:", exchangeError);
+            if (!cancelled) navigate("/auth");
+            return;
           }
-          
-          navigate("/dashboard", { replace: true });
-        } else {
-          console.warn('No session established after callback.');
-          navigate("/auth");
+
+          // Clean URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+
+          if (session && !cancelled) {
+            navigate("/dashboard", { replace: true });
+          } else if (!cancelled) {
+            navigate("/auth");
+          }
+          return;
         }
+
+        // Path 3: Session may already exist (e.g. email confirmation redirect)
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && !cancelled) {
+          navigate("/dashboard", { replace: true });
+          return;
+        }
+
+        console.warn("No tokens, code, or existing session found in callback URL");
+        if (!cancelled) navigate("/auth");
       } catch (e) {
         console.error("Auth callback error:", e);
-        console.error("Error stack:", e.stack);
-        navigate("/auth");
+        if (!cancelled) navigate("/auth");
       }
-    })();
+    };
+
+    handleCallback();
+    return () => { cancelled = true; };
   }, [navigate]);
 
   return (

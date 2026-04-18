@@ -106,63 +106,33 @@ const Apply = () => {
   };
 
   const canSubmit = () => {
-    console.log("=== canSubmit() started ===");
-    console.log("Current form data:", data);
-    console.log("User logged in:", !!user);
-    
-    // TEMP: Bypass validation to test handleSubmit
-    console.log("TEMP: Bypassing validation for testing");
-    console.log("=== canSubmit() ended ===");
-    return true;
-    
-    // Use validateForm instead of validateStep to avoid triggering error toasts
-    const result = validateForm();
-    console.log("validateForm() result:", result);
-    console.log("=== canSubmit() ended ===");
-    return result;
+    return validateForm();
   };
 
   const validateForm = () => {
-    console.log("=== validateForm() started ===");
-    // Check all required fields
     const requiredFields = ['realName', 'discord', 'age', 'rdm', 'vdm', 'metagaming', 'powergaming', 'charName', 'backstory', 'traits'];
-    console.log("Required fields:", requiredFields);
-    console.log("Field values:", requiredFields.map(field => ({ [field]: data[field as keyof FormData] })));
-    
     const missingFields = requiredFields.filter(field => !data[field as keyof FormData].trim());
-    console.log("Missing fields:", missingFields);
     
     if (missingFields.length > 0) {
-      console.log("Validation failed - missing fields:", missingFields);
       toast.error(`Please fill in all required fields: ${missingFields.join(', ')}`);
       return false;
     }
     
-    // Safe age validation - prevent valueAsNumber errors
     const ageStr = String(data.age).trim();
-    console.log("Age string:", ageStr);
     if (!ageStr) {
-      console.log("Age validation failed - empty age");
       toast.error("Please enter your age");
       return false;
     }
     
     const ageNum = parseInt(ageStr, 10);
-    console.log("Parsed age number:", ageNum);
     if (isNaN(ageNum) || ageNum < 1 || ageNum > 100) {
-      console.log("Age validation failed - invalid age:", ageNum);
       toast.error("Please enter a valid age between 1 and 100");
       return false;
     }
     
-    // Validate Discord ID format
     const discordPattern = /^\d{17,19}$/;
     const cleanDiscord = data.discord.replace(/\D/g, '');
-    console.log("Original Discord:", data.discord);
-    console.log("Clean Discord:", cleanDiscord);
-    console.log("Discord pattern test:", discordPattern.test(cleanDiscord));
     if (!discordPattern.test(cleanDiscord)) {
-      console.log("Discord validation failed");
       toast.error("Please enter a valid Discord ID (17-19 digits)");
       return false;
     }
@@ -171,29 +141,34 @@ const Apply = () => {
   };
 
   const handleSubmit = async () => {
-    console.log("=== Submit Application Debug Started ===");
-    
     if (!user) {
-      console.error("No user logged in", { user });
       toast.error("Please sign in to submit application");
       return;
     }
-    console.log("User logged in:", { id: user.id, email: user.email });
     const valid = validateForm();
-    console.log("validateForm() =", valid, "form data =", data);
-    if (!valid) {
-      console.error("Form validation failed (see validateForm logs)");
-      return;
-    }
-    
-    console.log("Form validation passed");
-    console.log("Form data:", data);
+    if (!valid) return;
     
     setSubmitting(true);
 
     try {
-      console.log("Attempting to insert into applications table...");
-      
+      // Check for existing pending application
+      const { data: existing } = await supabase
+        .from("applications")
+        .select("id, status")
+        .eq("user_id", user.id)
+        .in("status", ["pending", "accepted"])
+        .maybeSingle();
+
+      if (existing) {
+        if (existing.status === "accepted") {
+          toast.error("Your application has already been accepted!");
+        } else {
+          toast.error("You already have a pending application. Check your dashboard.");
+        }
+        setSubmitting(false);
+        return;
+      }
+
       const insertData = {
         user_id: user.id,
         real_name: data.realName,
@@ -208,28 +183,15 @@ const Apply = () => {
         traits: data.traits,
       };
       
-      console.log("Insert data:", insertData);
-      
-      const { data: result, error } = await supabase.from("applications").insert(insertData).select();
-      
-      console.log("Insert result:", result);
-      console.log("Insert error:", error);
+      const { error } = await supabase.from("applications").insert(insertData).select();
       
       if (error) {
-        console.error("Database error details:", {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
         toast.error("Failed to submit: " + error.message);
       } else {
-        console.log("Application submitted successfully!");
         setSubmitted(true);
         toast.success("Application submitted!");
       }
-    } catch (e) {
-      console.error("Unexpected error:", e);
+    } catch (e: any) {
       toast.error("Unexpected error: " + e.message);
     } finally {
       setSubmitting(false);
@@ -331,10 +293,7 @@ const Apply = () => {
                   ) : (
                     <button
                       onClick={() => {
-                        console.log("Submit button clicked");
-                        const ok = canSubmit();
-                        console.log("canSubmit() =", ok);
-                        if (ok) handleSubmit();
+                        if (canSubmit()) handleSubmit();
                       }}
                       disabled={submitting}
                       className="flex items-center gap-2 gradient-red text-primary-foreground px-8 py-2 rounded-md font-heading uppercase tracking-wide text-sm hover:box-glow-red transition-all disabled:opacity-70"
@@ -359,7 +318,7 @@ const Apply = () => {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground uppercase tracking-wide">Player</p>
-                    <p className="text-sm">{data.discord || "â"}</p>
+                    <p className="text-sm">{data.discord || "—"}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground uppercase tracking-wide">Backstory</p>
@@ -367,7 +326,7 @@ const Apply = () => {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground uppercase tracking-wide">Traits</p>
-                    <p className="text-sm">{data.traits || "â"}</p>
+                    <p className="text-sm">{data.traits || "—"}</p>
                   </div>
                 </div>
               </div>
