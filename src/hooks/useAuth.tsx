@@ -31,7 +31,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .eq("user_id", userId);
 
       if (roleError) {
-        console.error("Failed to fetch roles:", roleError);
         return [];
       }
 
@@ -43,14 +42,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           .insert({ user_id: userId, role: "user" });
         if (!insertError) {
           userRoles.push("user");
-        } else {
-          console.error("Failed to assign default role:", insertError);
         }
       }
 
       return userRoles;
-    } catch (e) {
-      console.error("Error in fetchRoles:", e);
+    } catch {
       return [];
     }
   };

@@ -47,13 +47,11 @@ const Dashboard = () => {
           .order("created_at", { ascending: false });
           
         if (error) {
-          console.error('Dashboard error:', error);
           setApplications([]);
         } else {
           setApplications(data ?? []);
         }
-      } catch (err) {
-        console.error('Dashboard fetch error:', err);
+      } catch {
         setApplications([]);
       } finally {
         setLoading(false);

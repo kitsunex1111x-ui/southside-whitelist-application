@@ -45,8 +45,7 @@ const RequestOwner = () => {
         toast.success("Owner access request submitted! We'll review it soon.");
         navigate('/dashboard');
       }
-    } catch (err) {
-      console.error('Request error:', err);
+    } catch {
       toast.error("An error occurred. Please try again.");
     } finally {
       setSubmitting(false);

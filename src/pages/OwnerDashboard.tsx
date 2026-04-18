@@ -19,13 +19,20 @@ interface RoleEntry {
 
 interface LogEntry {
   id: string;
-  actor_user_id: string;
+  user_id: string;
   action: string;
   details: Record<string, unknown> | null;
   created_at: string;
-  admin_name?: string;
   admin_avatar?: string;
   admin_provider?: string;
+  // nested join form
+  profiles?: {
+    display_name: string | null;
+    username: string | null;
+  };
+  // flattened form (what your sample shows)
+  username?: string | null;
+  display_name?: string | null;
 }
 
 const OwnerDashboard = () => {
@@ -33,11 +40,6 @@ const OwnerDashboard = () => {
   const [roles, setRoles] = useState<RoleEntry[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
-// Debug function to track logs state changes
-const debugSetLogs = (newLogs: LogEntry[]) => {
-  console.log('setLogs called with:', newLogs.length, 'entries');
-  setLogs(newLogs);
-};
   const [newEmail, setNewEmail] = useState("");
   const [newRole, setNewRole] = useState<AppRole>("admin");
   const [adding, setAdding] = useState(false);
@@ -85,65 +87,56 @@ const debugSetLogs = (newLogs: LogEntry[]) => {
   };
 
   const fetchData = async () => {
-    console.log("=== Fetching Owner Dashboard Data ===");
-    
     try {
-      // Fetch roles
-      console.log("Fetching user roles...");
-      const { data: rolesData, error: rolesError } = await supabase.from("user_roles").select("*");
-      
-      if (rolesError) {
-        console.error("Error fetching roles:", rolesError);
-        toast.error(`Failed to fetch roles: ${rolesError.message}`);
-      } else if (rolesData) {
-        console.log(`Found ${rolesData.length} role entries`);
-        
-        const userIds = rolesData.map((r) => r.user_id);
-        const { data: profiles, error: profilesError } = await supabase.from("profiles").select("user_id, username").in("user_id", userIds);
-        
-        if (profilesError) {
-          console.error("Error fetching profiles:", profilesError);
-        }
-        
-        const profileMap = new Map(profiles?.map((p) => [p.user_id, p.username]) ?? []);
-        setRoles(rolesData.map((r) => ({ ...r, email: profileMap.get(r.user_id) ?? r.user_id.slice(0, 8) })));
+      // Fetch roles via secure Edge Function
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Authentication required");
+        setLoading(false);
+        return;
       }
 
-      // Fetch admin logs (Activity Log) with Discord info using VIEW
-      console.log("Fetching admin logs with Discord info...");
+      const { data: rolesData, error: rolesError } = await supabase.functions.invoke('get-user-roles', {
+        method: 'POST',
+        body: {},
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+      
+      if (rolesError) {
+        toast.error(`Failed to fetch roles: ${rolesError.message}`);
+      } else if (rolesData?.data) {
+        const userIds = rolesData.data.map((r: any) => r.user_id);
+        const { data: profiles, error: profilesError } = await supabase.from("profiles").select("user_id, username").in("user_id", userIds);
+        
+        if (!profilesError) {
+          const profileMap = new Map(profiles?.map((p) => [p.user_id, p.username]) ?? []);
+          setRoles(rolesData.data.map((r: any) => ({ ...r, email: profileMap.get(r.user_id) ?? r.user_id.slice(0, 8) })));
+        }
+      }
+
+      // Fetch admin logs (Activity Log)
       const { data: logsData, error: logsError } = await supabase
-        .from("admin_logs_with_discord")
-        .select("*")
-        .order('created_at', { ascending: false })
+        .from("admin_logs")
+        .select(`
+          *,
+          profiles!inner (
+            display_name,
+            username
+          )
+        `)
+        .order("created_at", { ascending: false })
         .limit(50);
       
       if (logsError) {
-        console.error("Error fetching admin logs:", logsError);
-        if (logsError.code === 'PGRST204') {
-          // Table doesn't exist
-          toast.error("admin_logs_with_discord view not found. Please run SQL setup script.");
-          setLogs([]);
-        } else {
-          toast.error(`Failed to fetch activity log: ${logsError.message}`);
-          setLogs([]);
-        }
+        toast.error(`Failed to fetch activity log: ${logsError.message}`);
+        setLogs([]);
       } else {
-        console.log(`Found ${logsData?.length || 0} admin log entries`);
-        
-        // The VIEW already provides flattened data, so just set logs directly
-        console.log('Setting logs state with data:', logsData);
-        console.log('Sample log entry:', logsData?.[0]);
-        console.log('logsData length:', logsData?.length);
-        debugSetLogs((logsData ?? []) as LogEntry[]);
-        
-        // Debug logs state after setting
-        setTimeout(() => {
-            console.log('logs state after setLogs:', logs);
-        }, 100);
+        setLogs((logsData ?? []) as LogEntry[]);
       }
       
-    } catch (error) {
-      console.error("Unexpected error in fetchData:", error);
+    } catch {
       toast.error("An unexpected error occurred while fetching data");
     } finally {
       setLoading(false);
@@ -152,7 +145,8 @@ const debugSetLogs = (newLogs: LogEntry[]) => {
 
   useEffect(() => {
     if (isOwner) fetchData();
-  }, [isOwner]);
+  }, [isOwner, user?.id]);
+
 
   if (authLoading) return null;
   if (!isOwner) return <Navigate to="/dashboard" />;
@@ -184,7 +178,7 @@ const debugSetLogs = (newLogs: LogEntry[]) => {
     } else {
       await supabase.from("admin_logs").insert({
         actor_user_id: user!.id,
-        action: getActionDescription("add_role"),
+        action: "add_role",
         target_id: applications.user_id,
         details: { role: newRole, discord: newEmail },
       });
@@ -205,7 +199,7 @@ const debugSetLogs = (newLogs: LogEntry[]) => {
     if (!error) {
       await supabase.from("admin_logs").insert({
         actor_user_id: user!.id,
-        action: getActionDescription("remove_role"),
+        action: "remove_role",
         target_id: roleEntry.user_id,
         details: { role: roleEntry.role },
       });
@@ -306,18 +300,25 @@ const debugSetLogs = (newLogs: LogEntry[]) => {
                     {log.admin_avatar ? (
                       <img 
                         src={log.admin_avatar} 
-                        alt={log.admin_name || 'Admin'} 
+                        alt={(log.profiles?.display_name ?? log.display_name ?? log.profiles?.username ?? log.username) || 'Admin'} 
                         className="w-8 h-8 rounded-full flex-shrink-0"
                       />
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold flex-shrink-0">
-                        {(typeof log.admin_name === 'string' && log.admin_name.length > 0) ? log.admin_name[0].toUpperCase() : '?'}
+                        {(() => {
+  const name = log.profiles?.display_name ?? log.display_name ?? log.profiles?.username ?? log.username;
+  return name && name.length > 0 ? name[0].toUpperCase() : "?";
+})()}
                       </div>
                     )}
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-foreground">
-                          {log.admin_name || 'Unknown Admin'}
+                          {(() => {
+                            const real = log.profiles?.display_name ?? log.display_name ?? null;
+                            const user = log.profiles?.username ?? log.username ?? null;
+                            return real?.trim() || user?.trim() || "Unknown Admin";
+                          })()}
                         </span>
                         <span className="text-muted-foreground text-xs">
                           {getActionDescription(log)}

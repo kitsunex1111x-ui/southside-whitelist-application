@@ -21,7 +21,6 @@ const AuthCallback = () => {
 
         if (error) {
           const desc = hashParams.get("error_description") || queryParams.get("error_description") || error;
-          console.error("OAuth error:", desc);
           if (!cancelled) navigate("/auth");
           return;
         }
@@ -37,7 +36,6 @@ const AuthCallback = () => {
           });
 
           if (sessionError) {
-            console.error("setSession error:", sessionError);
             if (!cancelled) navigate("/auth");
             return;
           }
@@ -59,7 +57,6 @@ const AuthCallback = () => {
           const { data: { session }, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
           if (exchangeError) {
-            console.error("Code exchange error:", exchangeError);
             if (!cancelled) navigate("/auth");
             return;
           }
@@ -82,10 +79,8 @@ const AuthCallback = () => {
           return;
         }
 
-        console.warn("No tokens, code, or existing session found in callback URL");
         if (!cancelled) navigate("/auth");
-      } catch (e) {
-        console.error("Auth callback error:", e);
+      } catch {
         if (!cancelled) navigate("/auth");
       }
     };

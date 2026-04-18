@@ -60,7 +60,6 @@ const AdminDashboard = () => {
         setApps(data ?? []);
       }
     } catch (err) {
-      console.error("Unexpected error in fetchApps:", err);
       toast.error("An unexpected error occurred while fetching applications");
       setApps([]);
     } finally {
@@ -124,10 +123,10 @@ const AdminDashboard = () => {
                   body: { userId: appData.user_id, action: 'accepted' },
                 }
               );
-              if (syncError) console.error("Discord sync error:", syncError);
+              if (syncError) toast.error("Discord sync failed: " + syncError.message);
             }
-          } catch (syncErr) {
-            console.error("Discord sync exception:", syncErr);
+          } catch {
+            // Discord sync failed silently — main operation succeeded
           }
           
           // Only assign role in database if they don't already have it
@@ -136,7 +135,6 @@ const AdminDashboard = () => {
               .from("user_roles")
               .insert({ user_id: appData.user_id, role: "accepted" });
             if (roleError) {
-              console.error("Failed to assign accepted role:", roleError);
               toast.error("Application accepted but failed to assign role");
             }
           }
@@ -151,10 +149,10 @@ const AdminDashboard = () => {
                 "sync-discord-roles",
                 { method: 'POST', body: { userId: appData.user_id, action: 'rejected' } }
               );
-              if (syncError) console.error("Discord rejected sync error:", syncError);
+              if (syncError) toast.error("Discord sync failed: " + syncError.message);
             }
-          } catch (syncErr) {
-            console.error("Discord sync exception:", syncErr);
+          } catch {
+            // Discord sync failed silently — main operation succeeded
           }
         }
         
@@ -178,7 +176,6 @@ const AdminDashboard = () => {
         fetchApps();
       }
     } catch (err) {
-      console.error("Unexpected error in updateStatus:", err);
       toast.error("An unexpected error occurred");
     } finally {
       setSaving(false);
@@ -220,7 +217,6 @@ const AdminDashboard = () => {
         fetchApps();
       }
     } catch (err) {
-      console.error("Unexpected error in saveNotes:", err);
       toast.error("An unexpected error occurred while saving notes");
     } finally {
       setSaving(false);

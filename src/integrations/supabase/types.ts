@@ -83,7 +83,7 @@ export type Database = {
       admin_logs: {
         Row: {
           id: string;
-          admin_id: string;
+          actor_user_id: string;
           action: string;
           target_id: string | null;
           details: Record<string, unknown> | null;
@@ -91,7 +91,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
-          admin_id: string;
+          actor_user_id: string;
           action: string;
           target_id?: string | null;
           details?: Record<string, unknown> | null;
@@ -99,7 +99,7 @@ export type Database = {
         };
         Update: {
           id?: string;
-          admin_id?: string;
+          actor_user_id?: string;
           action?: string;
           target_id?: string | null;
           details?: Record<string, unknown> | null;
@@ -110,23 +110,26 @@ export type Database = {
         Row: {
           user_id: string;
           username: string;
+          display_name: string | null;
           created_at: string;
         };
         Insert: {
           user_id: string;
           username: string;
+          display_name?: string | null;
           created_at?: string;
         };
         Update: {
           user_id?: string;
           username?: string;
+          display_name?: string | null;
           created_at?: string;
         };
       };
     };
     Enums: {
       application_status: "pending" | "accepted" | "rejected";
-      app_role: "admin" | "owner";
+      app_role: "admin" | "owner" | "accepted" | "user";
     };
   };
 };
