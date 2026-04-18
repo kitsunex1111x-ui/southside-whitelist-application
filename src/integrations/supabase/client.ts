@@ -10,6 +10,12 @@ const supabaseAnonKey = envKey && envKey !== 'undefined' && envKey !== ''
   ? envKey 
   : 'sb_publishable_8pQ9kPHW74CZVjOPG3K1yA_8hWSuYxI';
 
+// Validate URL format
+if (!supabaseUrl || !supabaseUrl.startsWith('http')) {
+  console.error('Invalid Supabase URL:', supabaseUrl);
+  throw new Error('Invalid Supabase URL: Must start with http:// or https://');
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     detectSessionInUrl: false,
