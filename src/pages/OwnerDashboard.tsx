@@ -4,7 +4,11 @@ import { Navigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
-import { Shield, Trash2, Plus, Loader2, UserCog, Clock, RefreshCw } from "lucide-react";
+import {
+  Shield, Trash2, Plus, Loader2, UserCog,
+  Clock, RefreshCw, CheckCircle, XCircle,
+  UserPlus, UserMinus, FileText, Activity,
+} from "lucide-react";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -14,7 +18,7 @@ interface RoleEntry {
   id: string;
   user_id: string;
   role: AppRole;
-  displayName?: string;
+  displayName: string;
 }
 
 interface LogEntry {
@@ -24,35 +28,67 @@ interface LogEntry {
   target_id: string | null;
   details: Record<string, unknown> | null;
   created_at: string;
-  actorName?: string;
-  actorAvatar?: string;
+  actorName: string;
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-const getActionLabel = (log: LogEntry): string => {
-  const d = log.details as any;
-  switch (log.action) {
-    case "accept_application":
-      return `Accepted application${d?.new?.discord ? ` for ${d.new.discord}` : d?.new?.char_name ? ` for ${d.new.char_name}` : ""}`;
-    case "reject_application":
-      return `Rejected application${d?.new?.discord ? ` for ${d.new.discord}` : d?.new?.char_name ? ` for ${d.new.char_name}` : ""}`;
-    case "add_role":
-      return `Assigned ${d?.role ?? "role"}${d?.discord ? ` to ${d.discord}` : ""}`;
-    case "remove_role":
-      return `Removed ${d?.role ?? "role"}`;
-    case "add_notes":
-      return "Added admin notes";
-    default:
-      return log.action.replace(/_/g, " ");
-  }
+// ── Action config ─────────────────────────────────────────────────────────────
+const ACTION_CONFIG: Record<string, {
+  label: (d: any) => string;
+  color: string;
+  bg: string;
+  Icon: React.ElementType;
+}> = {
+  accept_application: {
+    label: (d) => {
+      const who = d?.new?.discord || d?.new?.char_name || d?.discord || null;
+      return who ? `Accepted application for ${who}` : "Accepted application";
+    },
+    color: "text-green-400",
+    bg: "bg-green-400/10 border-green-400/20",
+    Icon: CheckCircle,
+  },
+  reject_application: {
+    label: (d) => {
+      const who = d?.new?.discord || d?.new?.char_name || d?.discord || null;
+      return who ? `Rejected application for ${who}` : "Rejected application";
+    },
+    color: "text-red-400",
+    bg: "bg-red-400/10 border-red-400/20",
+    Icon: XCircle,
+  },
+  add_role: {
+    label: (d) => `Assigned ${d?.role ?? "role"}${d?.discord ? ` to ${d.discord}` : ""}`,
+    color: "text-yellow-400",
+    bg: "bg-yellow-400/10 border-yellow-400/20",
+    Icon: UserPlus,
+  },
+  remove_role: {
+    label: (d) => `Removed ${d?.role ?? "role"}`,
+    color: "text-orange-400",
+    bg: "bg-orange-400/10 border-orange-400/20",
+    Icon: UserMinus,
+  },
+  add_notes: {
+    label: () => "Added admin notes",
+    color: "text-blue-400",
+    bg: "bg-blue-400/10 border-blue-400/20",
+    Icon: FileText,
+  },
 };
 
-const actionColor = (action: string) => {
-  if (action.includes("accept")) return "text-green-400";
-  if (action.includes("reject")) return "text-red-400";
-  if (action.includes("role")) return "text-yellow-400";
-  return "text-blue-400";
-};
+const getActionCfg = (action: string) =>
+  ACTION_CONFIG[action] ?? {
+    label: () => action.replace(/_/g, " "),
+    color: "text-muted-foreground",
+    bg: "bg-secondary border-border",
+    Icon: Activity,
+  };
+
+const formatTs = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, {
+    month: "short", day: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
 
 // ── Component ─────────────────────────────────────────────────────────────────
 const OwnerDashboard = () => {
@@ -65,83 +101,95 @@ const OwnerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
 
     try {
-      // ── Roles ──────────────────────────────────────────────────────────────
-      // Fetch via Edge Function (secure — only owners can call it)
       const { data: { session } } = await supabase.auth.getSession();
-
       if (!session) {
-        toast.error("Session expired. Please log in again.");
-        setLoading(false);
-        setRefreshing(false);
+        toast.error("Session expired — please log in again.");
         return;
       }
 
-      const { data: rolesResp, error: rolesErr } = await supabase.functions.invoke(
-        "get-user-roles",
-        { method: "POST", body: {}, headers: { Authorization: `Bearer ${session.access_token}` } }
-      );
+      // ── Roles ────────────────────────────────────────────────────────────
+      // Try Edge Function first; fall back to direct RLS query
+      let rawRoles: { id: string; user_id: string; role: AppRole; created_at: string }[] = [];
 
-      if (rolesErr || !rolesResp?.data) {
-        // Fallback: direct query (still RLS-protected)
-        const { data: directRoles } = await supabase
+      const { data: efResp } = await supabase.functions.invoke("get-user-roles", {
+        method: "POST", body: {},
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (efResp?.data?.length) {
+        rawRoles = efResp.data;
+      } else {
+        const { data } = await supabase
           .from("user_roles")
           .select("id, user_id, role, created_at")
           .order("created_at", { ascending: false });
-
-        if (directRoles) {
-          const uids = directRoles.map((r) => r.user_id);
-          const { data: profiles } = await supabase
-            .from("profiles")
-            .select("user_id, username, display_name")
-            .in("user_id", uids);
-          const pm = new Map(profiles?.map((p) => [p.user_id, p.display_name || p.username]) ?? []);
-          setRoles(directRoles.map((r) => ({ ...r, displayName: pm.get(r.user_id) ?? `…${r.user_id.slice(-6)}` })));
-        }
-      } else {
-        const uids = rolesResp.data.map((r: any) => r.user_id);
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("user_id, username, display_name")
-          .in("user_id", uids);
-        const pm = new Map(profiles?.map((p) => [p.user_id, p.display_name || p.username]) ?? []);
-        setRoles(rolesResp.data.map((r: any) => ({ ...r, displayName: pm.get(r.user_id) ?? `…${r.user_id.slice(-6)}` })));
+        rawRoles = data ?? [];
       }
 
-      // ── Activity logs ──────────────────────────────────────────────────────
-      // Use LEFT JOIN so logs appear even when actor has no profile
+      // Fetch profiles for roles in a SEPARATE query (no FK join needed)
+      const roleUids = [...new Set(rawRoles.map((r) => r.user_id))];
+      const profileMap = new Map<string, string>();
+      if (roleUids.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("user_id, username, display_name")
+          .in("user_id", roleUids);
+        (profs ?? []).forEach((p) =>
+          profileMap.set(p.user_id, (p.display_name || p.username || "").trim())
+        );
+      }
+
+      setRoles(
+        rawRoles.map((r) => ({
+          ...r,
+          displayName: profileMap.get(r.user_id) || `…${r.user_id.slice(-8)}`,
+        }))
+      );
+
+      // ── Logs — two-step: fetch logs then profiles separately ─────────────
+      // Supabase only resolves FK joins automatically; admin_logs.actor_user_id
+      // has no declared FK to profiles, so we fetch them independently.
       const { data: rawLogs, error: logsErr } = await supabase
         .from("admin_logs")
-        .select(`
-          id,
-          actor_user_id,
-          action,
-          target_id,
-          details,
-          created_at,
-          profiles (
-            username,
-            display_name
-          )
-        `)
+        .select("id, actor_user_id, action, target_id, details, created_at")
         .order("created_at", { ascending: false })
         .limit(100);
 
-      if (logsErr) {
+      if (logsErr || !rawLogs) {
         toast.error("Could not load activity log.");
         setLogs([]);
       } else {
-        // Enrich logs with actor Discord avatar from auth metadata if available
-        const enriched: LogEntry[] = (rawLogs ?? []).map((l: any) => {
-          const profile = Array.isArray(l.profiles) ? l.profiles[0] : l.profiles;
+        // Collect all unique actor IDs
+        const actorIds = [...new Set(rawLogs.map((l) => l.actor_user_id).filter(Boolean))];
+
+        // Fetch their profiles in one query
+        const actorMap = new Map<string, string>();
+        if (actorIds.length > 0) {
+          const { data: actorProfs } = await supabase
+            .from("profiles")
+            .select("user_id, username, display_name")
+            .in("user_id", actorIds);
+          (actorProfs ?? []).forEach((p) => {
+            const name = (p.display_name || p.username || "").trim();
+            if (name) actorMap.set(p.user_id, name);
+          });
+        }
+
+        const enriched: LogEntry[] = rawLogs.map((l) => {
+          // Priority: profile name → discord tag in details → short user ID
+          const d = l.details as any;
           const actorName =
-            profile?.display_name?.trim() ||
-            profile?.username?.trim() ||
+            actorMap.get(l.actor_user_id) ||
+            d?.actor_discord ||
+            d?.actor_name ||
             `User …${l.actor_user_id?.slice(-6) ?? "?"}`;
+
           return {
             id: l.id,
             actor_user_id: l.actor_user_id,
@@ -152,9 +200,10 @@ const OwnerDashboard = () => {
             actorName,
           };
         });
+
         setLogs(enriched);
       }
-    } catch (err: any) {
+    } catch {
       toast.error("Failed to load data.");
     } finally {
       setLoading(false);
@@ -173,11 +222,11 @@ const OwnerDashboard = () => {
   );
   if (!isOwner) return <Navigate to="/dashboard" replace />;
 
-  // ── Add role ───────────────────────────────────────────────────────────────
+  // ── Mutations ──────────────────────────────────────────────────────────────
   const addRole = async () => {
     const discordId = newDiscordId.trim();
-    if (!discordId) { toast.error("Enter a Discord ID"); return; }
-    if (!/^\d{17,19}$/.test(discordId)) { toast.error("Discord ID must be 17–19 digits"); return; }
+    if (!discordId) return toast.error("Enter a Discord ID");
+    if (!/^\d{17,19}$/.test(discordId)) return toast.error("Discord ID must be 17–19 digits");
     setAdding(true);
 
     const { data: app } = await supabase
@@ -212,12 +261,10 @@ const OwnerDashboard = () => {
     setAdding(false);
   };
 
-  // ── Remove role ────────────────────────────────────────────────────────────
   const removeRole = async (r: RoleEntry) => {
-    if (r.user_id === user!.id && r.role === "owner") {
-      toast.error("You can't remove your own owner role.");
-      return;
-    }
+    if (r.user_id === user!.id && r.role === "owner")
+      return toast.error("You can't remove your own owner role.");
+
     const { error } = await supabase.from("user_roles").delete().eq("id", r.id);
     if (!error) {
       await supabase.from("admin_logs").insert({
@@ -233,6 +280,7 @@ const OwnerDashboard = () => {
     }
   };
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -250,7 +298,7 @@ const OwnerDashboard = () => {
             <button
               onClick={() => fetchData(true)}
               disabled={refreshing}
-              className="flex items-center gap-2 bg-secondary px-4 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground transition-all"
+              className="flex items-center gap-2 bg-secondary px-4 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground transition-all disabled:opacity-50"
             >
               <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
               Refresh
@@ -272,6 +320,7 @@ const OwnerDashboard = () => {
                     type="text"
                     value={newDiscordId}
                     onChange={(e) => setNewDiscordId(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addRole()}
                     placeholder="e.g. 123456789012345678"
                     className="w-full bg-secondary border border-border rounded-md px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                   />
@@ -302,6 +351,7 @@ const OwnerDashboard = () => {
             <div className="bg-card border border-border rounded-xl p-6">
               <h2 className="font-heading text-xl font-semibold uppercase tracking-wide mb-6 flex items-center gap-2">
                 <UserCog size={20} className="text-primary" /> Current Roles
+                {!loading && <span className="ml-auto text-xs text-muted-foreground font-normal normal-case">{roles.length} members</span>}
               </h2>
               {loading ? (
                 <div className="flex items-center gap-2 text-muted-foreground text-sm">
@@ -313,11 +363,16 @@ const OwnerDashboard = () => {
                 <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                   {roles.map((r) => (
                     <div key={r.id} className="flex items-center justify-between bg-secondary rounded-lg px-4 py-3">
-                      <div>
-                        <p className="font-medium text-sm">{r.displayName}</p>
-                        <span className={`text-xs font-heading uppercase tracking-wide ${r.role === "owner" ? "text-primary" : "text-yellow-400"}`}>
-                          {r.role}
-                        </span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary text-xs font-bold">
+                          {r.displayName[0]?.toUpperCase() ?? "?"}
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">{r.displayName}</p>
+                          <span className={`text-xs font-heading uppercase tracking-wide ${r.role === "owner" ? "text-primary" : r.role === "admin" ? "text-yellow-400" : "text-green-400"}`}>
+                            {r.role}
+                          </span>
+                        </div>
                       </div>
                       <button
                         onClick={() => removeRole(r)}
@@ -339,55 +394,75 @@ const OwnerDashboard = () => {
               <h2 className="font-heading text-xl font-semibold uppercase tracking-wide flex items-center gap-2">
                 <Clock size={20} className="text-primary" /> Activity Log
               </h2>
-              <span className="text-xs text-muted-foreground">{logs.length} entries</span>
+              <span className="text-xs text-muted-foreground bg-secondary px-3 py-1 rounded-full">
+                {logs.length} entries
+              </span>
             </div>
 
             {loading ? (
-              <div className="flex items-center gap-2 text-muted-foreground text-sm py-4">
+              <div className="flex items-center gap-2 text-muted-foreground text-sm py-6">
                 <Loader2 size={14} className="animate-spin" /> Loading activity…
               </div>
             ) : logs.length === 0 ? (
-              <p className="text-muted-foreground text-sm py-4">No activity recorded yet.</p>
+              <div className="text-center py-12">
+                <Activity size={32} className="text-muted-foreground mx-auto mb-3 opacity-40" />
+                <p className="text-muted-foreground text-sm">No activity recorded yet.</p>
+              </div>
             ) : (
-              <div className="space-y-2 max-h-[32rem] overflow-y-auto pr-1">
-                {logs.map((log) => (
-                  <div key={log.id} className="flex items-start gap-3 bg-secondary rounded-lg px-4 py-3">
-                    {/* Avatar */}
-                    <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary text-xs font-bold flex-shrink-0 mt-0.5">
-                      {log.actorName?.[0]?.toUpperCase() ?? "?"}
-                    </div>
+              <div className="space-y-2 max-h-[36rem] overflow-y-auto pr-1">
+                {logs.map((log) => {
+                  const d = log.details as any;
+                  const cfg = getActionCfg(log.action);
+                  const IconComp = cfg.Icon;
+                  const label = cfg.label(d);
 
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                        <span className="font-semibold text-sm text-foreground">{log.actorName}</span>
-                        <span className={`text-xs font-medium ${actionColor(log.action)}`}>
-                          {getActionLabel(log)}
-                        </span>
+                  // Build detail chips
+                  const chips: { label: string; value: string }[] = [];
+                  if (d?.new?.discord || d?.discord) chips.push({ label: "Discord", value: d?.new?.discord || d?.discord });
+                  if (d?.new?.char_name) chips.push({ label: "Character", value: d.new.char_name });
+                  if (d?.role) chips.push({ label: "Role", value: d.role });
+                  if (d?.notes) chips.push({ label: "Note", value: String(d.notes).slice(0, 60) + (String(d.notes).length > 60 ? "…" : "") });
+
+                  return (
+                    <div key={log.id} className="flex items-start gap-3 rounded-xl border border-border/50 bg-secondary/50 px-4 py-3 hover:bg-secondary transition-colors">
+
+                      {/* Action icon */}
+                      <div className={`w-8 h-8 rounded-full border flex items-center justify-center flex-shrink-0 mt-0.5 ${cfg.bg}`}>
+                        <IconComp size={14} className={cfg.color} />
                       </div>
-                      {/* Extra detail row */}
-                      {log.details && (() => {
-                        const d = log.details as any;
-                        const parts: string[] = [];
-                        if (d?.new?.discord) parts.push(`Discord: ${d.new.discord}`);
-                        if (d?.new?.char_name) parts.push(`Char: ${d.new.char_name}`);
-                        if (d?.notes) parts.push(`"${String(d.notes).slice(0, 60)}${d.notes.length > 60 ? "…" : ""}"`);
-                        if (log.target_id && !d?.new?.discord) parts.push(`ID: ${log.target_id.slice(0, 8)}…`);
-                        return parts.length > 0 ? (
-                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{parts.join(" · ")}</p>
-                        ) : null;
-                      })()}
-                    </div>
 
-                    {/* Timestamp */}
-                    <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0 mt-0.5">
-                      {new Date(log.created_at).toLocaleString(undefined, {
-                        month: "short", day: "numeric",
-                        hour: "2-digit", minute: "2-digit",
-                      })}
-                    </span>
-                  </div>
-                ))}
+                      {/* Body */}
+                      <div className="flex-1 min-w-0">
+
+                        {/* Actor + action line */}
+                        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+                          <span className="font-semibold text-sm text-foreground">{log.actorName}</span>
+                          <span className={`text-xs font-medium ${cfg.color}`}>{label}</span>
+                        </div>
+
+                        {/* Detail chips */}
+                        {chips.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-1.5">
+                            {chips.map((chip) => (
+                              <span
+                                key={chip.label}
+                                className="inline-flex items-center gap-1 text-xs bg-background border border-border rounded-md px-2 py-0.5 text-muted-foreground"
+                              >
+                                <span className="font-medium text-foreground/60">{chip.label}:</span>
+                                {chip.value}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Timestamp */}
+                      <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0 mt-0.5 tabular-nums">
+                        {formatTs(log.created_at)}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
