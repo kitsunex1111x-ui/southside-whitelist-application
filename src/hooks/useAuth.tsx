@@ -57,9 +57,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let mounted = true;
 
+    // Timeout failsafe — if getSession hangs, force stop loading
+    const timeoutId = setTimeout(() => {
+      if (mounted) {
+        console.log("[Auth] getSession timeout — forcing loading=false");
+        setLoading(false);
+      }
+    }, 5000);
+
     // Initial session load — runs once on mount
+    console.log("[Auth] Starting getSession...");
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      clearTimeout(timeoutId);
       if (!mounted) return;
+      console.log("[Auth] getSession resolved, session:", session ? "yes" : "no");
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -67,8 +78,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (mounted) setRoles(userRoles);
       }
       if (mounted) setLoading(false);
-    }).catch(() => {
-      // If getSession fails, still stop loading to prevent infinite spinner
+    }).catch((err) => {
+      clearTimeout(timeoutId);
+      console.error("[Auth] getSession failed:", err);
       if (mounted) setLoading(false);
     });
 
