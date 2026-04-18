@@ -13,79 +13,33 @@ const AuthCallback = () => {
         console.error("[AuthCallback] Timeout — redirecting to auth");
         navigate("/auth", { replace: true });
       }
-    }, 10000); // 10 second timeout
+    }, 15000); // 15 second timeout
 
     const handleCallback = async () => {
       try {
-        const hash = window.location.hash;
+        // Check for OAuth error in URL
         const search = window.location.search;
-
-        // Check for OAuth error in hash or query string
-        const hashParams = new URLSearchParams(hash.substring(1));
+        const hash = window.location.hash;
         const queryParams = new URLSearchParams(search);
-        const error = hashParams.get("error") || queryParams.get("error");
+        const hashParams = new URLSearchParams(hash.substring(1));
+        const error = queryParams.get("error") || hashParams.get("error");
 
         if (error) {
-          const desc = hashParams.get("error_description") || queryParams.get("error_description") || error;
           if (!cancelled) navigate("/auth");
           return;
         }
 
-        // Path 1: Implicit flow — tokens in URL hash
-        const accessToken = hashParams.get("access_token");
-        const refreshToken = hashParams.get("refresh_token");
-
-        if (accessToken) {
-          const { data: { session }, error: sessionError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken || "",
-          });
-
-          if (sessionError) {
-            if (!cancelled) navigate("/auth");
-            return;
-          }
-
-          // Clean URL
-          window.history.replaceState({}, document.title, window.location.pathname);
-
-          if (session && !cancelled) {
-            navigate("/dashboard", { replace: true });
-          } else if (!cancelled) {
-            navigate("/auth");
-          }
-          return;
-        }
-
-        // Path 2: PKCE / code flow — code in query string
-        const code = queryParams.get("code");
-        if (code) {
-          const { data: { session }, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-
-          if (exchangeError) {
-            if (!cancelled) navigate("/auth");
-            return;
-          }
-
-          // Clean URL
-          window.history.replaceState({}, document.title, window.location.pathname);
-
-          if (session && !cancelled) {
-            navigate("/dashboard", { replace: true });
-          } else if (!cancelled) {
-            navigate("/auth");
-          }
-          return;
-        }
-
-        // Path 3: Session may already exist (e.g. email confirmation redirect)
+        // With detectSessionInUrl: true, Supabase auto-handles the code
+        // Just wait for session to be established
         const { data: { session } } = await supabase.auth.getSession();
+        
         if (session && !cancelled) {
+          // Clean URL
+          window.history.replaceState({}, document.title, window.location.pathname);
           navigate("/dashboard", { replace: true });
-          return;
+        } else if (!cancelled) {
+          navigate("/auth");
         }
-
-        if (!cancelled) navigate("/auth");
       } catch {
         if (!cancelled) navigate("/auth");
       }
