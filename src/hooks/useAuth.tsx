@@ -1,4 +1,11 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  ReactNode,
+} from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -23,16 +30,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchRoles = async (userId: string): Promise<AppRole[]> => {
+  const fetchRoles = useCallback(async (userId: string): Promise<AppRole[]> => {
     try {
-      const { data: roleData, error: roleError } = await supabase
+      const { data: roleData, error } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", userId);
 
-      if (roleError) {
-        return [];
-      }
+      if (error) return [];
 
       const userRoles: AppRole[] = roleData?.map((r) => r.role) ?? [];
 
@@ -40,21 +45,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const { error: insertError } = await supabase
           .from("user_roles")
           .insert({ user_id: userId, role: "user" });
-        if (!insertError) {
-          userRoles.push("user");
-        }
+        if (!insertError) userRoles.push("user");
       }
 
       return userRoles;
     } catch {
       return [];
     }
-  };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
 
-    // Initial session load
+    // Initial session load — runs once on mount
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted) return;
       setSession(session);
@@ -66,32 +69,49 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (mounted) setLoading(false);
     });
 
-    // Auth state changes (login, logout, token refresh)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (!mounted) return;
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          const userRoles = await fetchRoles(session.user.id);
-          if (mounted) setRoles(userRoles);
-        } else {
-          setRoles([]);
-        }
-        if (mounted) setLoading(false);
+    // Listen for auth events (login, logout, token refresh, etc.)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      if (event === "SIGNED_OUT" || !session) {
+        setRoles([]);
+        setLoading(false);
+        return;
       }
-    );
+
+      if (session?.user) {
+        const userRoles = await fetchRoles(session.user.id);
+        if (mounted) setRoles(userRoles);
+      }
+
+      if (mounted) setLoading(false);
+    });
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchRoles]);
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    setRoles([]);
-  };
+  const signOut = useCallback(async () => {
+    try {
+      // Clear local state immediately so UI responds at once
+      setUser(null);
+      setSession(null);
+      setRoles([]);
+      // Then tell Supabase to invalidate the server session
+      await supabase.auth.signOut();
+    } catch {
+      // State is already cleared — safe to ignore
+    }
+    // Hard redirect — clears any in-memory route state
+    window.location.href = "/auth";
+  }, []);
 
   return (
     <AuthContext.Provider
