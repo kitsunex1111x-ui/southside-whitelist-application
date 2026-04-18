@@ -182,13 +182,26 @@ const OwnerDashboard = () => {
         }
 
         const enriched: LogEntry[] = rawLogs.map((l) => {
-          // Priority: profile name → discord tag in details → short user ID
           const d = l.details as any;
-          const actorName =
+          // Resolution priority:
+          // 1. actor_name embedded at write time (new logs)
+          // 2. profile display_name / username from profiles table
+          // 3. current user's own metadata (if they are the actor)
+          // 4. short user ID fallback
+          let actorName =
+            d?.actor_name?.trim() ||
             actorMap.get(l.actor_user_id) ||
-            d?.actor_discord ||
-            d?.actor_name ||
-            `User …${l.actor_user_id?.slice(-6) ?? "?"}`;
+            null;
+
+          if (!actorName && session?.user?.id === l.actor_user_id) {
+            actorName =
+              session.user.user_metadata?.full_name ||
+              session.user.user_metadata?.user_name ||
+              session.user.email ||
+              null;
+          }
+
+          actorName = actorName || `User …${l.actor_user_id?.slice(-6) ?? "?"}`;
 
           return {
             id: l.id,
@@ -248,11 +261,16 @@ const OwnerDashboard = () => {
     if (error) {
       toast.error(error.message.includes("duplicate") ? "User already has that role." : error.message);
     } else {
+      const actorName =
+        user!.user_metadata?.full_name ||
+        user!.user_metadata?.user_name ||
+        user!.email ||
+        user!.id.slice(-8);
       await supabase.from("admin_logs").insert({
         actor_user_id: user!.id,
         action: "add_role",
         target_id: app.user_id,
-        details: { role: newRole, discord: discordId },
+        details: { actor_name: actorName, role: newRole, discord: discordId },
       });
       toast.success(`${newRole} assigned to ${discordId}`);
       setNewDiscordId("");
@@ -267,11 +285,16 @@ const OwnerDashboard = () => {
 
     const { error } = await supabase.from("user_roles").delete().eq("id", r.id);
     if (!error) {
+      const actorName =
+        user!.user_metadata?.full_name ||
+        user!.user_metadata?.user_name ||
+        user!.email ||
+        user!.id.slice(-8);
       await supabase.from("admin_logs").insert({
         actor_user_id: user!.id,
         action: "remove_role",
         target_id: r.user_id,
-        details: { role: r.role },
+        details: { actor_name: actorName, role: r.role },
       });
       toast.success("Role removed.");
       fetchData(true);

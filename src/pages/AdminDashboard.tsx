@@ -156,19 +156,25 @@ const AdminDashboard = () => {
           }
         }
         
-        // Add to admin logs
+        // Add to admin logs — include actor_name so OwnerDashboard can display it
+        const actorName =
+          user.user_metadata?.full_name ||
+          user.user_metadata?.user_name ||
+          user.email ||
+          user.id.slice(-8);
         await supabase.from("admin_logs").insert({
           actor_user_id: user.id,
           action: status === "accepted" ? "accept_application" : "reject_application",
           target_id: id,
-          details: { 
-            status, 
+          details: {
+            actor_name: actorName,
+            status,
             application_id: id,
             new: {
               status,
-              discord: appData?.discord || 'Unknown User',
-              char_name: appData?.char_name || null
-            }
+              discord: appData?.discord || "Unknown User",
+              char_name: appData?.char_name || null,
+            },
           },
         });
         
@@ -204,12 +210,21 @@ const AdminDashboard = () => {
       if (error) {
         toast.error(`Failed to save notes: ${error.message}`);
       } else {
-        // Add to admin logs
+        // Add to admin logs — include actor_name so OwnerDashboard can display it
+        const actorNameForNotes =
+          user.user_metadata?.full_name ||
+          user.user_metadata?.user_name ||
+          user.email ||
+          user.id.slice(-8);
         await supabase.from("admin_logs").insert({
           actor_user_id: user.id,
           action: "add_notes",
           target_id: notesModal.id,
-          details: { notes: notesModal.notes, application_id: notesModal.id },
+          details: {
+            actor_name: actorNameForNotes,
+            notes: notesModal.notes,
+            application_id: notesModal.id,
+          },
         });
         
         toast.success("Notes saved successfully!");
