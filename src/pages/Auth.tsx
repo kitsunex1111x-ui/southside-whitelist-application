@@ -14,7 +14,7 @@ const Auth = () => {
   const navigate = useNavigate();
 
   const handleDiscordLogin = async () => {
-    const redirectTo = 'https://southside-whitelist-application.vercel.app/auth/callback';
+    const redirectTo = `${window.location.origin}/auth/callback`;
     
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'discord',
@@ -44,7 +44,7 @@ const Auth = () => {
         password,
         options: {
           data: { username },
-          emailRedirectTo: 'https://southside-whitelist-application.vercel.app',
+          emailRedirectTo: window.location.origin,
         },
       });
       if (error) {
