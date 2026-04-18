@@ -183,7 +183,14 @@ const Apply = () => {
         traits: data.traits,
       };
       
-      const { error } = await supabase.from("applications").insert(insertData).select();
+      // Add timeout to prevent infinite hanging on slow RLS
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Request timed out - please try again")), 10000)
+      );
+      
+      const submitPromise = supabase.from("applications").insert(insertData).select();
+      
+      const { error } = await Promise.race([submitPromise, timeoutPromise]) as any;
       
       if (error) {
         toast.error("Failed to submit: " + error.message);
