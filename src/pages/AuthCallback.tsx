@@ -8,6 +8,12 @@ const AuthCallback = () => {
 
   useEffect(() => {
     let cancelled = false;
+    const timeoutId = setTimeout(() => {
+      if (!cancelled) {
+        console.error("[AuthCallback] Timeout — redirecting to auth");
+        navigate("/auth", { replace: true });
+      }
+    }, 10000); // 10 second timeout
 
     const handleCallback = async () => {
       try {
@@ -85,8 +91,8 @@ const AuthCallback = () => {
       }
     };
 
-    handleCallback();
-    return () => { cancelled = true; };
+    handleCallback().finally(() => clearTimeout(timeoutId));
+    return () => { cancelled = true; clearTimeout(timeoutId); };
   }, [navigate]);
 
   return (
