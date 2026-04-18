@@ -67,6 +67,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (mounted) setRoles(userRoles);
       }
       if (mounted) setLoading(false);
+    }).catch(() => {
+      // If getSession fails, still stop loading to prevent infinite spinner
+      if (mounted) setLoading(false);
     });
 
     // Listen for auth events (login, logout, token refresh, etc.)
