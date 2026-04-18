@@ -183,21 +183,37 @@ const Apply = () => {
         traits: data.traits,
       };
       
-      // Add timeout to prevent infinite hanging on slow RLS
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Request timed out - please try again")), 10000)
-      );
+      // Retry logic with timeout for slow RLS
+      let retries = 3;
+      let lastError = null;
       
-      const submitPromise = supabase.from("applications").insert(insertData).select();
-      
-      const { error } = await Promise.race([submitPromise, timeoutPromise]) as any;
-      
-      if (error) {
-        toast.error("Failed to submit: " + error.message);
-      } else {
-        setSubmitted(true);
-        toast.success("Application submitted!");
+      while (retries > 0) {
+        try {
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error("timeout")), 8000)
+          );
+          
+          const submitPromise = supabase.from("applications").insert(insertData).select();
+          
+          const result = await Promise.race([submitPromise, timeoutPromise]) as any;
+          
+          if (!result.error) {
+            setSubmitted(true);
+            toast.success("Application submitted successfully!");
+            return;
+          }
+          
+          lastError = result.error;
+          retries--;
+          if (retries > 0) await new Promise(r => setTimeout(r, 1000));
+        } catch (e: any) {
+          lastError = e;
+          retries--;
+          if (retries > 0) await new Promise(r => setTimeout(r, 1000));
+        }
       }
+      
+      toast.error("Failed to submit after retries: " + (lastError?.message || "Unknown error"));
     } catch (e: any) {
       toast.error("Unexpected error: " + e.message);
     } finally {

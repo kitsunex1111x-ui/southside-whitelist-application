@@ -41,48 +41,71 @@ const AdminDashboard = () => {
   const [saving, setSaving] = useState(false);
   const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
 
-  const fetchApps = async () => {
-    try {
-      if (!user || !isAdmin) {
-        setApps([]);
-        setLoading(false);
-        return;
-      }
+  const fetchApps = async (silent = false) => {
+    let attempts = 0;
+    const maxAttempts = 3;
+    
+    while (attempts < maxAttempts) {
+      attempts++;
       
-      let q = supabase.from("applications").select("*").order("created_at", { ascending: false });
-      if (filter !== "all") q = q.eq("status", filter);
-      
-      const { data, error } = await q;
-      
-      if (error) {
-        toast.error(`Failed to fetch applications: ${error.message}`);
-        setApps([]);
-      } else {
-        setApps(data ?? []);
+      try {
+        if (!user || !isAdmin) {
+          setApps([]);
+          setLoading(false);
+          return;
+        }
         
-        // Fetch user avatars for applications
-        if (data && data.length > 0) {
-          const userIds = [...new Set(data.map(app => app.user_id).filter(Boolean))];
-          if (userIds.length > 0) {
-            const { data: profiles } = await supabase
-              .from("profiles")
-              .select("user_id, avatar_url")
-              .in("user_id", userIds);
-            
-            const avatarMap: Record<string, string> = {};
-            profiles?.forEach(p => {
-              if (p.avatar_url) avatarMap[p.user_id] = p.avatar_url;
-            });
-            setUserAvatars(avatarMap);
+        // Timeout wrapper for slow queries
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("timeout")), 10000)
+        );
+        
+        let q = supabase.from("applications").select("*").order("created_at", { ascending: false });
+        if (filter !== "all") q = q.eq("status", filter);
+        
+        const result = await Promise.race([q, timeoutPromise]) as any;
+        
+        if (result.error) {
+          if (attempts < maxAttempts) {
+            await new Promise(r => setTimeout(r, 1000));
+            continue;
           }
+          if (!silent) toast.error(`Failed to fetch: ${result.error.message}`);
+          setApps([]);
+        } else {
+          setApps(result.data ?? []);
+          
+          // Fetch avatars after successful apps load
+          if (result.data && result.data.length > 0) {
+            const userIds = [...new Set(result.data.map((app: any) => app.user_id).filter(Boolean))];
+            if (userIds.length > 0) {
+              const { data: profiles } = await supabase
+                .from("profiles")
+                .select("user_id, avatar_url")
+                .in("user_id", userIds);
+              
+              const avatarMap: Record<string, string> = {};
+              profiles?.forEach((p: any) => {
+                if (p.avatar_url) avatarMap[p.user_id] = p.avatar_url;
+              });
+              setUserAvatars(avatarMap);
+            }
+          }
+          
+          setLoading(false);
+          return;
+        }
+      } catch {
+        if (attempts < maxAttempts) {
+          await new Promise(r => setTimeout(r, 1000));
+        } else {
+          if (!silent) toast.error("Network timeout - please refresh");
+          setApps([]);
         }
       }
-    } catch (err) {
-      toast.error("An unexpected error occurred while fetching applications");
-      setApps([]);
-    } finally {
-      setLoading(false);
     }
+    
+    setLoading(false);
   };
 
   useEffect(() => {
