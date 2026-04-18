@@ -4,6 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+const DISCORD_ICON = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 1 0-.008.128 10.2 10.2 0 0 0 .372.292.074.074 0 0 1 .077.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078-.01c.12-.098.246-.198.373-.292a.077.077 0 1 0-.006-.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418z"/>
+  </svg>
+);
+
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -11,49 +17,69 @@ const Auth = () => {
   const [username, setUsername] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [discordLoading, setDiscordLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleDiscordLogin = async () => {
-    const redirectTo = 'https://southside-whitelist-application.vercel.app/auth/callback';
-    
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'discord',
-      options: { redirectTo },
-    });
-    
-    if (error) {
-      toast.error(error.message);
+    if (discordLoading) return;
+    setDiscordLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "discord",
+        options: {
+          redirectTo: "https://southside-whitelist-application.vercel.app/auth/callback",
+        },
+      });
+      if (error) {
+        toast.error(error.message);
+        setDiscordLoading(false);
+      }
+      // On success the page navigates away — no need to reset state
+    } catch {
+      toast.error("Failed to start Discord login. Please try again.");
+      setDiscordLoading(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
 
-    if (isLogin) {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        toast.error(error.message);
+    try {
+      if (isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          toast.error(error.message);
+        } else {
+          toast.success("Welcome back!");
+          navigate("/dashboard");
+        }
       } else {
-        toast.success("Welcome back!");
-        navigate("/dashboard");
+        if (!username.trim()) {
+          toast.error("Please enter a username");
+          setLoading(false);
+          return;
+        }
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { username: username.trim() },
+            emailRedirectTo: window.location.origin,
+          },
+        });
+        if (error) {
+          toast.error(error.message);
+        } else {
+          toast.success("Account created! Check your email to confirm.");
+        }
       }
-    } else {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { username },
-          emailRedirectTo: window.location.origin,
-        },
-      });
-      if (error) {
-        toast.error(error.message);
-      } else {
-        toast.success("Account created! Check your email to confirm.");
-      }
+    } catch {
+      toast.error("An unexpected error occurred. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -63,47 +89,58 @@ const Auth = () => {
           <h1 className="font-heading text-4xl font-bold uppercase tracking-wider">
             <span className="text-primary text-glow-red">SOUTHSIDE</span>RP
           </h1>
-          <p className="text-muted-foreground mt-2">{isLogin ? "Welcome back, soldier." : "Join the streets."}</p>
+          <p className="text-muted-foreground mt-2">
+            {isLogin ? "Welcome back, soldier." : "Join the streets."}
+          </p>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-8 animate-fade-in-up">
-          <div className="space-y-4">
-            <button
-              onClick={handleDiscordLogin}
-              className="w-full bg-[#5865F2] text-white py-3 rounded-md font-heading uppercase tracking-wider text-sm hover:bg-[#4752C3] transition-all flex items-center justify-center gap-2"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 1 0-.008.128 10.2 10.2 0 0 0 .372.292.074.074 0 0 1 .077.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078-.01c.12-.098.246-.198.373-.292a.077.077 0 1 0-.006-.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418z"/>
-              </svg>
-              Sign in with Discord
-            </button>
-          </div>
-          <div className="text-center mt-4">
-            <span className="text-muted-foreground text-sm">or</span>
-            <div className="flex gap-2 mt-2">
-              <button
-                onClick={() => setIsLogin(true)}
-                className={`flex-1 py-3 font-heading text-sm uppercase tracking-wider transition-all ${
-                  isLogin ? "gradient-red text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Login
-              </button>
-              <button
-                onClick={() => setIsLogin(false)}
-                className={`flex-1 py-3 font-heading text-sm uppercase tracking-wider transition-all ${
-                  !isLogin ? "gradient-red text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Sign Up
-              </button>
-            </div>
+          {/* Discord OAuth — primary login method */}
+          <button
+            onClick={handleDiscordLogin}
+            disabled={discordLoading}
+            className="w-full bg-[#5865F2] text-white py-3 rounded-md font-heading uppercase tracking-wider text-sm hover:bg-[#4752C3] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+          >
+            {discordLoading ? (
+              <><Loader2 className="animate-spin" size={18} /> Connecting to Discord...</>
+            ) : (
+              <>{DISCORD_ICON} Sign in with Discord</>
+            )}
+          </button>
+
+          {/* Email/password divider */}
+          <div className="flex items-center gap-3 my-5">
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-muted-foreground text-xs uppercase tracking-wider">or</span>
+            <div className="flex-1 h-px bg-border" />
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Tab switcher */}
+          <div className="flex gap-2 mb-5">
+            <button
+              onClick={() => setIsLogin(true)}
+              className={`flex-1 py-2.5 rounded-md font-heading text-sm uppercase tracking-wider transition-all ${
+                isLogin ? "gradient-red text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Login
+            </button>
+            <button
+              onClick={() => setIsLogin(false)}
+              className={`flex-1 py-2.5 rounded-md font-heading text-sm uppercase tracking-wider transition-all ${
+                !isLogin ? "gradient-red text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Sign Up
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
-              <div className="animate-fade-in">
-                <label htmlFor="username" className="block text-sm font-medium mb-2 uppercase tracking-wide">Username</label>
+              <div>
+                <label htmlFor="username" className="block text-sm font-medium mb-2 uppercase tracking-wide">
+                  Username
+                </label>
                 <input
                   type="text"
                   id="username"
@@ -111,14 +148,17 @@ const Auth = () => {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="e.g. ShadowKing"
-                  required
+                  required={!isLogin}
+                  autoComplete="username"
                   className="w-full bg-secondary border border-border rounded-md px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                 />
               </div>
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium mb-2 uppercase tracking-wide">Email</label>
+              <label htmlFor="email" className="block text-sm font-medium mb-2 uppercase tracking-wide">
+                Email
+              </label>
               <input
                 type="email"
                 id="email"
@@ -127,12 +167,15 @@ const Auth = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
+                autoComplete="email"
                 className="w-full bg-secondary border border-border rounded-md px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium mb-2 uppercase tracking-wide">Password</label>
+              <label htmlFor="password" className="block text-sm font-medium mb-2 uppercase tracking-wide">
+                Password
+              </label>
               <div className="relative">
                 <input
                   type={showPw ? "text" : "password"}
@@ -140,15 +183,17 @@ const Auth = () => {
                   name="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="password123"
+                  placeholder="••••••••"
                   required
                   minLength={6}
+                  autoComplete={isLogin ? "current-password" : "new-password"}
                   className="w-full bg-secondary border border-border rounded-md px-4 py-3 pr-12 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPw(!showPw)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showPw ? "Hide password" : "Show password"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -160,7 +205,9 @@ const Auth = () => {
               disabled={loading}
               className="w-full gradient-red text-primary-foreground py-3 rounded-md font-heading uppercase tracking-wider text-sm hover:box-glow-red transition-all disabled:opacity-70 flex items-center justify-center gap-2"
             >
-              {loading ? <><Loader2 className="animate-spin" size={18} /> Processing...</> : isLogin ? "Login" : "Create Account"}
+              {loading ? (
+                <><Loader2 className="animate-spin" size={18} /> Processing...</>
+              ) : isLogin ? "Login" : "Create Account"}
             </button>
           </form>
         </div>

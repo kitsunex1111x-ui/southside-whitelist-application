@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -30,7 +30,6 @@ const stepTitles = ["Personal Info", "RP Knowledge", "Character Creation"];
 
 const Apply = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [data, setData] = useState<FormData>(initialData);
   const [submitting, setSubmitting] = useState(false);
@@ -105,8 +104,14 @@ const Apply = () => {
     return isValid;
   };
 
+  // canSubmit just triggers error highlighting without toasts (toasts come from handleSubmit)
   const canSubmit = () => {
-    return validateForm();
+    const allFilled = ['realName', 'discord', 'age', 'rdm', 'vdm', 'metagaming', 'powergaming', 'charName', 'backstory', 'traits']
+      .every(f => data[f as keyof FormData].trim() !== '');
+    if (!allFilled) {
+      setValidationAttempts({ 0: true, 1: true, 2: true });
+    }
+    return allFilled;
   };
 
   const validateForm = () => {
@@ -183,7 +188,7 @@ const Apply = () => {
         traits: data.traits,
       };
       
-      // Retry logic with timeout for slow RLS
+      // Insert with timeout and retry for slow Supabase free tier
       let retries = 3;
       let lastError = null;
       
@@ -193,9 +198,9 @@ const Apply = () => {
             setTimeout(() => reject(new Error("timeout")), 8000)
           );
           
-          const submitPromise = supabase.from("applications").upsert(insertData, { onConflict: 'user_id' }).select();
+          const insertPromise = supabase.from("applications").insert(insertData);
           
-          const result = await Promise.race([submitPromise, timeoutPromise]) as any;
+          const result = await Promise.race([insertPromise, timeoutPromise]) as any;
           
           if (!result.error) {
             setSubmitted(true);
@@ -212,7 +217,7 @@ const Apply = () => {
           if (retries > 0) await new Promise(r => setTimeout(r, 1000));
         }
       }
-      
+
       toast.error("Failed to submit after retries: " + (lastError?.message || "Unknown error"));
     } catch (e: any) {
       toast.error("Unexpected error: " + e.message);

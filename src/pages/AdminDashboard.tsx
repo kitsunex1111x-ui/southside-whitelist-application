@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
-import { Check, X, MessageSquare, Filter, Loader2, Copy } from "lucide-react";
+import { Check, X, MessageSquare, Filter, Loader2, Copy, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -15,124 +15,64 @@ const AdminDashboard = () => {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const [apps, setApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Convert action names to descriptive messages
-  const getActionDescription = (action: string) => {
-    switch (action) {
-      case 'accept_application':
-        return 'Accepted application';
-      case 'reject_application':
-        return 'Rejected application';
-      case 'add_role':
-        return 'Added role';
-      case 'remove_role':
-        return 'Removed role';
-      case 'add_notes':
-        return 'Added notes';
-      case 'UPDATE applications':
-        return 'Updated application';
-      default:
-        return action.replace(/_/g, " ");
-    }
-  };
-
   const [filter, setFilter] = useState<Status | "all">("all");
   const [notesModal, setNotesModal] = useState<{ id: string; notes: string } | null>(null);
   const [saving, setSaving] = useState(false);
-  const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
+  // Tracks which app ID is being confirmed for accept/reject
+  const [confirmAction, setConfirmAction] = useState<{ id: string; status: Status } | null>(null);
 
-  const fetchApps = async (silent = false) => {
-    let attempts = 0;
-    const maxAttempts = 3;
-    
-    while (attempts < maxAttempts) {
-      attempts++;
-      
+  const fetchApps = useCallback(async () => {
+    if (!user || !isAdmin) { setApps([]); setLoading(false); return; }
+    setLoading(true);
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        if (!user || !isAdmin) {
-          setApps([]);
-          setLoading(false);
-          return;
-        }
-        
-        // Timeout wrapper for slow queries
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("timeout")), 10000)
-        );
-        
-        let q = supabase.from("applications").select("*").order("created_at", { ascending: false });
+        let q = supabase
+          .from("applications")
+          .select("*")
+          .order("created_at", { ascending: false });
         if (filter !== "all") q = q.eq("status", filter);
-        
-        const result = await Promise.race([q, timeoutPromise]) as any;
-        
-        if (result.error) {
-          if (attempts < maxAttempts) {
-            await new Promise(r => setTimeout(r, 1000));
-            continue;
-          }
-          if (!silent) toast.error(`Failed to fetch: ${result.error.message}`);
-          setApps([]);
-        } else {
-          setApps(result.data ?? []);
-          
-          // Fetch avatars after successful apps load
-          if (result.data && result.data.length > 0) {
-            const userIds = [...new Set(result.data.map((app: any) => app.user_id).filter(Boolean))];
-            if (userIds.length > 0) {
-              const { data: profiles } = await supabase
-                .from("profiles")
-                .select("user_id, avatar_url")
-                .in("user_id", userIds);
-              
-              const avatarMap: Record<string, string> = {};
-              profiles?.forEach((p: any) => {
-                if (p.avatar_url) avatarMap[p.user_id] = p.avatar_url;
-              });
-              setUserAvatars(avatarMap);
-            }
-          }
-          
+
+        const { data, error } = await q;
+
+        if (!error) {
+          setApps(data ?? []);
           setLoading(false);
           return;
         }
+
+        if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 1000));
       } catch {
-        if (attempts < maxAttempts) {
-          await new Promise(r => setTimeout(r, 1000));
-        } else {
-          if (!silent) toast.error("Network timeout - please refresh");
-          setApps([]);
-        }
+        if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 1000));
       }
     }
-    
+
+    toast.error("Failed to load applications. Please refresh.");
+    setApps([]);
     setLoading(false);
-  };
+  }, [user, isAdmin, filter]);
 
   useEffect(() => {
     if (isAdmin) fetchApps();
-  }, [isAdmin, filter]);
+  }, [isAdmin, filter, fetchApps]);
 
-  if (authLoading) return null;
-  if (!isAdmin) return <Navigate to="/dashboard" />;
+  // Show spinner instead of null to avoid black flash
+  if (authLoading) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+  if (!isAdmin) return <Navigate to="/dashboard" replace />;
 
   const updateStatus = async (id: string, status: Status) => {
     setSaving(true);
-    
+    setConfirmAction(null);
+
     try {
-      if (!user || !isAdmin) {
-        toast.error("Admin access required");
-        setSaving(false);
-        return;
-      }
-      
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("applications")
-        .update({ 
-          status,
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", id)
-        .select();
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq("id", id);
 
       if (error) {
         toast.error(`Failed to update: ${error.message}`);
@@ -291,9 +231,19 @@ const AdminDashboard = () => {
       <Navbar />
       <div className="pt-28 pb-20">
         <div className="container mx-auto px-4 max-w-6xl">
-          <h1 className="font-heading text-4xl font-bold uppercase tracking-wider mb-2">
-            Admin <span className="text-primary text-glow-red">Panel</span>
-          </h1>
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="font-heading text-4xl font-bold uppercase tracking-wider">
+              Admin <span className="text-primary text-glow-red">Panel</span>
+            </h1>
+            <button
+              onClick={() => fetchApps()}
+              disabled={loading}
+              className="flex items-center gap-2 bg-secondary px-4 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground transition-all disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+              Refresh
+            </button>
+          </div>
           <p className="text-muted-foreground mb-8">Manage whitelist applications.</p>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -319,7 +269,20 @@ const AdminDashboard = () => {
           </div>
 
           {loading ? (
-            <div className="text-center py-20 text-muted-foreground">Loading...</div>
+            <div className="space-y-4">
+              {[1,2,3].map(i => (
+                <div key={i} className="bg-card border border-border rounded-xl p-6 animate-pulse">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-secondary" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-secondary rounded w-1/4" />
+                      <div className="h-3 bg-secondary rounded w-1/3" />
+                    </div>
+                    <div className="h-8 w-24 bg-secondary rounded-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : apps.length === 0 ? (
             <div className="text-center py-20 text-muted-foreground">No applications found.</div>
           ) : (
@@ -328,25 +291,9 @@ const AdminDashboard = () => {
                 <div key={app.id} className="bg-card border border-border rounded-xl p-6 animate-fade-in">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      {userAvatars[app.user_id] ? (
-                        <img 
-                          src={userAvatars[app.user_id]} 
-                          alt={app.char_name}
-                          className="w-12 h-12 rounded-full object-cover border-2 border-primary/30"
-                          onError={(e) => {
-                            // Fallback to placeholder on image error
-                            (e.target as HTMLImageElement).style.display = 'none';
-                            const parent = (e.target as HTMLImageElement).parentElement;
-                            if (parent) {
-                              parent.innerHTML = `<div class="w-12 h-12 rounded-full gradient-red flex items-center justify-center font-heading text-lg font-bold text-primary-foreground">${app.char_name[0]?.toUpperCase()}</div>`;
-                            }
-                          }}
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full gradient-red flex items-center justify-center font-heading text-lg font-bold text-primary-foreground">
-                          {app.char_name[0]?.toUpperCase()}
-                        </div>
-                      )}
+                      <div className="w-12 h-12 rounded-full gradient-red flex items-center justify-center font-heading text-lg font-bold text-primary-foreground flex-shrink-0">
+                        {app.char_name[0]?.toUpperCase()}
+                      </div>
                       <div>
                         <h3 className="font-heading text-lg font-semibold">{app.char_name}</h3>
                         <div className="flex items-center gap-2">
@@ -365,28 +312,28 @@ const AdminDashboard = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <StatusBadge status={app.status} />
                       <button
-                        onClick={() => updateStatus(app.id, "accepted")}
+                        onClick={() => setConfirmAction({ id: app.id, status: "accepted" })}
                         disabled={saving || app.status === "accepted"}
                         className="p-2 rounded-md bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-all disabled:opacity-30"
-                        title="Accept"
+                        title="Accept application"
                       >
                         <Check size={18} />
                       </button>
                       <button
-                        onClick={() => updateStatus(app.id, "rejected")}
+                        onClick={() => setConfirmAction({ id: app.id, status: "rejected" })}
                         disabled={saving || app.status === "rejected"}
                         className="p-2 rounded-md bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all disabled:opacity-30"
-                        title="Reject"
+                        title="Reject application"
                       >
                         <X size={18} />
                       </button>
                       <button
                         onClick={() => setNotesModal({ id: app.id, notes: app.admin_notes ?? "" })}
                         className="p-2 rounded-md bg-secondary text-muted-foreground hover:text-foreground transition-all"
-                        title="Add Notes"
+                        title="Add notes"
                       >
                         <MessageSquare size={18} />
                       </button>
@@ -418,7 +365,45 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {notesModal && (
+      {/* Confirm accept/reject dialog */}
+      {confirmAction && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm">
+            <h3 className="font-heading text-xl font-semibold uppercase tracking-wide mb-3">
+              Confirm {confirmAction.status === "accepted" ? "Accept" : "Reject"}
+            </h3>
+            <p className="text-muted-foreground text-sm mb-6">
+              Are you sure you want to{" "}
+              <span className={confirmAction.status === "accepted" ? "text-green-400 font-semibold" : "text-red-400 font-semibold"}>
+                {confirmAction.status === "accepted" ? "accept" : "reject"}
+              </span>{" "}
+              this application? This will update the applicant's status.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setConfirmAction(null)}
+                className="px-4 py-2 rounded-md bg-secondary text-muted-foreground hover:text-foreground font-heading text-sm uppercase tracking-wide"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => updateStatus(confirmAction.id, confirmAction.status)}
+                disabled={saving}
+                className={`flex items-center gap-2 px-6 py-2 rounded-md font-heading text-sm uppercase tracking-wide transition-all disabled:opacity-70 text-white ${
+                  confirmAction.status === "accepted"
+                    ? "bg-green-600 hover:bg-green-700"
+                    : "bg-red-600 hover:bg-red-700"
+                }`}
+              >
+                {saving ? <Loader2 className="animate-spin" size={16} /> : null}
+                {confirmAction.status === "accepted" ? "Accept" : "Reject"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notes modal */}
         <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-card border border-border rounded-xl p-6 w-full max-w-md animate-fade-in-up">
             <h3 className="font-heading text-xl font-semibold uppercase tracking-wide mb-4">Admin Notes</h3>

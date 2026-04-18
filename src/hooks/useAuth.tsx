@@ -41,6 +41,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const userRoles: AppRole[] = roleData?.map((r) => r.role) ?? [];
 
+      // Assign default "user" role on first login
       if (userRoles.length === 0) {
         const { error: insertError } = await supabase
           .from("user_roles")
@@ -56,78 +57,70 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let mounted = true;
-    console.log("[Auth] Starting auth initialization...");
 
-    // Timeout failsafe — if getSession hangs, force stop loading
+    // Hard timeout — guarantees loading never hangs forever on slow connections
     const timeoutId = setTimeout(() => {
-      console.log("[Auth] Timeout reached, forcing loading=false");
       if (mounted) setLoading(false);
-    }, 5000);
+    }, 8000);
 
-    // Initial session load — runs once on mount
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      console.log("[Auth] getSession resolved, has session:", !!session);
-      clearTimeout(timeoutId);
-      if (!mounted) return;
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        console.log("[Auth] Fetching roles for user:", session.user.id);
-        const userRoles = await fetchRoles(session.user.id);
-        console.log("[Auth] Roles fetched:", userRoles);
-        if (mounted) setRoles(userRoles);
+    // Initial session load on mount
+    supabase.auth.getSession()
+      .then(async ({ data: { session } }) => {
+        clearTimeout(timeoutId);
+        if (!mounted) return;
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          const userRoles = await fetchRoles(session.user.id);
+          if (mounted) setRoles(userRoles);
+        }
+        if (mounted) setLoading(false);
+      })
+      .catch(() => {
+        clearTimeout(timeoutId);
+        if (mounted) setLoading(false);
+      });
+
+    // React to all auth state changes (login, logout, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
+
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        if (event === "SIGNED_OUT" || !session) {
+          setRoles([]);
+          setLoading(false);
+          return;
+        }
+
+        if (session?.user) {
+          const userRoles = await fetchRoles(session.user.id);
+          if (mounted) setRoles(userRoles);
+        }
+
+        if (mounted) setLoading(false);
       }
-      if (mounted) {
-        console.log("[Auth] Setting loading=false");
-        setLoading(false);
-      }
-    }).catch((err) => {
-      console.error("[Auth] getSession failed:", err);
-      clearTimeout(timeoutId);
-      if (mounted) setLoading(false);
-    });
-
-    // Listen for auth events (login, logout, token refresh, etc.)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
-
-      setSession(session);
-      setUser(session?.user ?? null);
-
-      if (event === "SIGNED_OUT" || !session) {
-        setRoles([]);
-        setLoading(false);
-        return;
-      }
-
-      if (session?.user) {
-        const userRoles = await fetchRoles(session.user.id);
-        if (mounted) setRoles(userRoles);
-      }
-
-      if (mounted) setLoading(false);
-    });
+    );
 
     return () => {
       mounted = false;
+      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, [fetchRoles]);
 
+  // Hard redirect ensures all in-memory state is fully reset
   const signOut = useCallback(async () => {
+    setUser(null);
+    setSession(null);
+    setRoles([]);
     try {
-      // Clear local state immediately so UI responds at once
-      setUser(null);
-      setSession(null);
-      setRoles([]);
-      // Then tell Supabase to invalidate the server session
       await supabase.auth.signOut();
     } catch {
       // State is already cleared — safe to ignore
     }
-    // Hard redirect — clears any in-memory route state
     window.location.href = "/auth";
   }, []);
 
