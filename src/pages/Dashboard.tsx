@@ -37,23 +37,30 @@ const Dashboard = () => {
   useEffect(() => {
     if (!user) return;
     
+    console.log("[Dashboard] Starting applications fetch for user:", user.id);
     setLoading(true);
     const fetchApplications = async () => {
       try {
+        console.log("[Dashboard] Querying applications...");
         const { data, error } = await supabase
           .from("applications")
           .select("*")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false });
           
+        console.log("[Dashboard] Query result:", { hasData: !!data, count: data?.length, error: error?.message });
+        
         if (error) {
+          console.error("[Dashboard] Query error:", error);
           setApplications([]);
         } else {
           setApplications(data ?? []);
         }
-      } catch {
+      } catch (err) {
+        console.error("[Dashboard] Exception:", err);
         setApplications([]);
       } finally {
+        console.log("[Dashboard] Setting loading=false");
         setLoading(false);
       }
     };
