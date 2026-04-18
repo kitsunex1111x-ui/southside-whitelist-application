@@ -193,7 +193,7 @@ const Apply = () => {
             setTimeout(() => reject(new Error("timeout")), 8000)
           );
           
-          const submitPromise = supabase.from("applications").insert(insertData).select();
+          const submitPromise = supabase.from("applications").upsert(insertData, { onConflict: 'user_id' }).select();
           
           const result = await Promise.race([submitPromise, timeoutPromise]) as any;
           
