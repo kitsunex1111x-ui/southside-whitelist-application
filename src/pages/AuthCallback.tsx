@@ -8,45 +8,50 @@ const AuthCallback = () => {
 
   useEffect(() => {
     let cancelled = false;
-    const timeoutId = setTimeout(() => {
-      if (!cancelled) {
-        console.error("[AuthCallback] Timeout — redirecting to auth");
-        navigate("/auth", { replace: true });
+    let attempts = 0;
+    const maxAttempts = 20;
+    
+    const checkSession = async () => {
+      if (cancelled || attempts >= maxAttempts) {
+        if (!cancelled) navigate("/auth", { replace: true });
+        return;
       }
-    }, 15000); // 15 second timeout
-
-    const handleCallback = async () => {
+      
+      attempts++;
+      
       try {
-        // Check for OAuth error in URL
+        // Check for OAuth errors
         const search = window.location.search;
         const hash = window.location.hash;
-        const queryParams = new URLSearchParams(search);
-        const hashParams = new URLSearchParams(hash.substring(1));
-        const error = queryParams.get("error") || hashParams.get("error");
-
+        const error = new URLSearchParams(search).get("error") || 
+                     new URLSearchParams(hash.substring(1)).get("error");
+        
         if (error) {
           if (!cancelled) navigate("/auth");
           return;
         }
-
-        // With detectSessionInUrl: true, Supabase auto-handles the code
-        // Just wait for session to be established
+        
+        // Check if session exists (detectSessionInUrl auto-handles hash tokens)
         const { data: { session } } = await supabase.auth.getSession();
         
-        if (session && !cancelled) {
-          // Clean URL
+        if (session) {
+          // Clean URL and redirect
           window.history.replaceState({}, document.title, window.location.pathname);
-          navigate("/dashboard", { replace: true });
-        } else if (!cancelled) {
-          navigate("/auth");
+          if (!cancelled) navigate("/dashboard", { replace: true });
+          return;
         }
+        
+        // No session yet, retry in 500ms
+        setTimeout(checkSession, 500);
       } catch {
-        if (!cancelled) navigate("/auth");
+        setTimeout(checkSession, 500);
       }
     };
-
-    handleCallback().finally(() => clearTimeout(timeoutId));
-    return () => { cancelled = true; clearTimeout(timeoutId); };
+    
+    // Start checking
+    checkSession();
+    
+    return () => { cancelled = true; };
   }, [navigate]);
 
   return (
