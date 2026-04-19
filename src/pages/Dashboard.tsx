@@ -60,6 +60,7 @@ const Dashboard = () => {
   // Start true so there's no empty-state flash before data arrives
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -84,21 +85,26 @@ const Dashboard = () => {
         if (cancelled) return;
 
         if (error) {
+          console.error("[Dashboard] Applications fetch error:", error);
           // Retry up to 3 times with backoff
           if (attempt < 3) {
             await new Promise((r) => setTimeout(r, attempt * 1000));
             return fetchApplications(attempt + 1);
           }
+          setError("Failed to load applications. Please refresh or try again later.");
           setApplications([]);
         } else {
           setApplications(data ?? []);
+          setError(null);
         }
-      } catch {
+      } catch (err) {
+        console.error("[Dashboard] Fetch exception:", err);
         if (cancelled) return;
         if (attempt < 3) {
           await new Promise((r) => setTimeout(r, attempt * 1000));
           return fetchApplications(attempt + 1);
         }
+        setError("Network error. Please check your connection and try again.");
         setApplications([]);
       } finally {
         if (!cancelled) setLoading(false);
@@ -165,8 +171,22 @@ const Dashboard = () => {
           </h1>
           <p className="text-muted-foreground mb-10">Track your whitelist applications.</p>
 
-          {/* Loading skeletons */}
-          {loading ? (
+          {/* Error state */}
+          {error ? (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-8 text-center">
+              <div className="text-red-400 mb-4 text-4xl">⚠️</div>
+              <h2 className="font-heading text-xl font-semibold text-red-300 mb-2">
+                Error Loading Applications
+              </h2>
+              <p className="text-muted-foreground mb-4">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="gradient-red text-primary-foreground px-6 py-2 rounded-md font-heading uppercase tracking-wider text-sm hover:box-glow-red transition-all"
+              >
+                Refresh Page
+              </button>
+            </div>
+          ) : loading ? (
             <div className="space-y-4">
               <AppSkeleton />
               <AppSkeleton />
