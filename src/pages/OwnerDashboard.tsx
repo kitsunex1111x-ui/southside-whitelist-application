@@ -106,10 +106,18 @@ const OwnerDashboard = () => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
 
+    // Timeout safety - force stop loading after 5s
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+      setRefreshing(false);
+    }, 5000);
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
+        clearTimeout(timeoutId);
         toast.error("Session expired — please log in again.");
+        setLoading(false);
         return;
       }
 
@@ -205,11 +213,15 @@ const OwnerDashboard = () => {
 
         setLogs(enriched);
       }
-    } catch {
-      toast.error("Failed to load data.");
+    } catch (e) {
+      clearTimeout(timeoutId);
+      toast.error("Failed to load owner data.");
+      if (!silent) setLoading(false);
+      else setRefreshing(false);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      clearTimeout(timeoutId);
+      if (!silent) setLoading(false);
+      else setRefreshing(false);
     }
   }, []);
 

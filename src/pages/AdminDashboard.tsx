@@ -68,13 +68,18 @@ const AdminDashboard = () => {
 
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+
         let q = supabase
           .from("applications")
           .select("*")
-          .order("created_at", { ascending: false });
+          .order("created_at", { ascending: false })
+          .abortSignal(controller.signal);
         if (filter !== "all") q = q.eq("status", filter);
 
         const { data, error } = await q;
+        clearTimeout(timeoutId);
 
         if (!error) {
           setApps(data ?? []);
