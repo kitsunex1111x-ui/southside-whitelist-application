@@ -11,7 +11,7 @@ type Application = {
   user_id: string;
   char_name: string;
   discord: string;
-  age: string;
+  age: number;          // INTEGER in database
   real_name: string;
   backstory: string;
   traits: string;
@@ -23,6 +23,7 @@ type Application = {
   created_at: string;
   updated_at: string;
   admin_notes: string | null;
+  type: string | null;
 };
 
 const statusConfig = {
@@ -248,7 +249,7 @@ const Dashboard = () => {
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 mt-4">
-                      <InfoBlock label="Age" value={app.age} />
+                      <InfoBlock label="Age" value={String(app.age)} />
                       <InfoBlock label="Submitted" value={new Date(app.created_at).toLocaleDateString()} />
                     </div>
 

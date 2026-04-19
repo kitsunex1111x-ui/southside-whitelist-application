@@ -8,7 +8,7 @@ export type Database = {
           type: string | null;
           char_name: string;
           discord: string;
-          age: string;
+          age: number;              // INTEGER in DB
           backstory: string;
           traits: string;
           metagaming: string;
@@ -20,7 +20,6 @@ export type Database = {
           created_at: string;
           updated_at: string;
           admin_notes: string | null;
-          reviewed_by: string | null;
         };
         Insert: {
           id?: string;
@@ -28,7 +27,7 @@ export type Database = {
           type?: string | null;
           char_name: string;
           discord: string;
-          age: string;
+          age: number;
           backstory: string;
           traits: string;
           metagaming: string;
@@ -40,7 +39,6 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           admin_notes?: string | null;
-          reviewed_by?: string | null;
         };
         Update: {
           id?: string;
@@ -48,7 +46,7 @@ export type Database = {
           type?: string | null;
           char_name?: string;
           discord?: string;
-          age?: string;
+          age?: number;
           backstory?: string;
           traits?: string;
           metagaming?: string;
@@ -60,7 +58,6 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           admin_notes?: string | null;
-          reviewed_by?: string | null;
         };
       };
       user_roles: {
@@ -69,18 +66,21 @@ export type Database = {
           user_id: string;
           role: Database["public"]["Enums"]["app_role"];
           created_at: string;
+          updated_at: string | null;
         };
         Insert: {
           id?: string;
           user_id: string;
           role: Database["public"]["Enums"]["app_role"];
           created_at?: string;
+          updated_at?: string | null;
         };
         Update: {
           id?: string;
           user_id?: string;
           role?: Database["public"]["Enums"]["app_role"];
           created_at?: string;
+          updated_at?: string | null;
         };
       };
       admin_logs: {
@@ -111,22 +111,28 @@ export type Database = {
       };
       profiles: {
         Row: {
+          id: string;
           user_id: string;
-          username: string;
+          username: string | null;
           display_name: string | null;
-          created_at: string;
+          avatar_url: string | null;
+          updated_at: string;
         };
         Insert: {
+          id?: string;
           user_id: string;
-          username: string;
+          username?: string | null;
           display_name?: string | null;
-          created_at?: string;
+          avatar_url?: string | null;
+          updated_at?: string;
         };
         Update: {
+          id?: string;
           user_id?: string;
-          username?: string;
+          username?: string | null;
           display_name?: string | null;
-          created_at?: string;
+          avatar_url?: string | null;
+          updated_at?: string;
         };
       };
     };
