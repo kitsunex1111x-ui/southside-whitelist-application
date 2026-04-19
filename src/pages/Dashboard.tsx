@@ -67,12 +67,22 @@ const Dashboard = () => {
 
     let cancelled = false;
     setLoading(true);
+    setError(null);
 
-    const fetchApplications = async (attempt = 1): Promise<void> => {
+    const timeoutMs = 4000; // request timeout
+    const hardUiMs = 3000;   // skeleton timeout
+
+    const hardTimeout = setTimeout(() => {
+      if (cancelled) return;
+      setLoading(false);
+      setError("Loading applications timed out. Please refresh.");
+    }, hardUiMs);
+
+    const controller = new AbortController();
+    const requestTimeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    const fetchOnce = async () => {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
-
         const { data, error } = await supabase
           .from("applications")
           .select("*")
@@ -80,50 +90,39 @@ const Dashboard = () => {
           .order("created_at", { ascending: false })
           .abortSignal(controller.signal);
 
-        clearTimeout(timeoutId);
-
         if (cancelled) return;
 
         if (error) {
           console.error("[Dashboard] Applications fetch error:", error);
-          // Retry up to 3 times with backoff
-          if (attempt < 3) {
-            await new Promise((r) => setTimeout(r, attempt * 1000));
-            return fetchApplications(attempt + 1);
-          }
-          setError("Failed to load applications. Please refresh or try again later.");
+          setError("Failed to load applications. Please try again.");
           setApplications([]);
-        } else {
-          setApplications(data ?? []);
-          setError(null);
+          return;
         }
-      } catch (err) {
-        console.error("[Dashboard] Fetch exception:", err);
+        setApplications(data ?? []);
+        setError(null);
+      } catch (err: any) {
         if (cancelled) return;
-        if (attempt < 3) {
-          await new Promise((r) => setTimeout(r, attempt * 1000));
-          return fetchApplications(attempt + 1);
+
+        // If abort happened, show timeout message
+        if (err?.name === "AbortError" || controller.signal.aborted) {
+          setError("Loading applications timed out. Please refresh.");
+        } else {
+          console.error("[Dashboard] Fetch exception:", err);
+          setError("Network error. Please check your connection and try again.");
         }
-        setError("Network error. Please check your connection and try again.");
         setApplications([]);
       } finally {
         if (!cancelled) setLoading(false);
+        clearTimeout(requestTimeout);
+        clearTimeout(hardTimeout);
       }
     };
+    fetchOnce();
 
-    // Hard timeout - force stop loading after 3s regardless of fetch state
-    const hardTimeout = setTimeout(() => {
-      if (!cancelled) {
-        setLoading(false);
-        if (applications.length === 0 && !error) {
-          setError("Loading timed out. Please refresh.");
-        }
-      }
-    }, 3000);
-
-    fetchApplications();
-    return () => { 
-      cancelled = true; 
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearTimeout(requestTimeout);
       clearTimeout(hardTimeout);
     };
   }, [user]);

@@ -66,35 +66,44 @@ const AdminDashboard = () => {
     if (!user || !isAdmin) { setApps([]); setLoading(false); return; }
     setLoading(true);
 
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const hardTimeout = setTimeout(() => {
+      setLoading(false);
+      toast.error("Loading timed out. Please refresh.");
+    }, 3000);
 
-        let q = supabase
-          .from("applications")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .abortSignal(controller.signal);
-        if (filter !== "all") q = q.eq("status", filter);
+    try {
+      let q = supabase
+        .from("applications")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .abortSignal(controller.signal);
+      if (filter !== "all") q = q.eq("status", filter);
 
-        const { data, error } = await q;
-        clearTimeout(timeoutId);
+      const { data, error } = await q;
+      clearTimeout(timeoutId);
+      clearTimeout(hardTimeout);
 
-        if (!error) {
-          setApps(data ?? []);
-          setLoading(false);
-          return;
-        }
-        if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 1000));
-      } catch {
-        if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 1000));
+      if (error) {
+        console.error("[AdminDashboard] Fetch error:", error);
+        toast.error("Failed to load applications.");
+        setApps([]);
+      } else {
+        setApps(data ?? []);
       }
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      clearTimeout(hardTimeout);
+      if (err?.name === "AbortError") {
+        toast.error("Loading timed out. Please refresh.");
+      } else {
+        toast.error("Network error.");
+      }
+      setApps([]);
+    } finally {
+      setLoading(false);
     }
-
-    toast.error("Failed to load applications. Please refresh.");
-    setApps([]);
-    setLoading(false);
   }, [user, isAdmin, filter]);
 
   useEffect(() => {
