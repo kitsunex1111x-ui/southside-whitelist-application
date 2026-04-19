@@ -1,25 +1,36 @@
+import { lazy, Suspense } from "react";
 import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
-import LiveCounters from "@/components/LiveCounters";
-import FeaturesGrid from "@/components/FeaturesGrid";
-import FoundersSection from "@/components/FoundersSection";
-import HowToJoin from "@/components/HowToJoin";
-import RecentlyAccepted from "@/components/RecentlyAccepted";
-import FinalCTA from "@/components/FinalCTA";
 import Footer from "@/components/Footer";
 import StickyApply from "@/components/StickyApply";
+
+// Lazy load below-fold components for faster initial paint
+const LiveCounters = lazy(() => import("@/components/LiveCounters"));
+const FeaturesGrid = lazy(() => import("@/components/FeaturesGrid"));
+const FoundersSection = lazy(() => import("@/components/FoundersSection"));
+const HowToJoin = lazy(() => import("@/components/HowToJoin"));
+const RecentlyAccepted = lazy(() => import("@/components/RecentlyAccepted"));
+const FinalCTA = lazy(() => import("@/components/FinalCTA"));
+
+const SectionLoader = () => (
+  <div className="w-full h-32 flex items-center justify-center">
+    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+  </div>
+);
 
 const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <HeroSection />
-      <LiveCounters />
-      <FeaturesGrid />
-      <FoundersSection />
-      <HowToJoin />
-      <RecentlyAccepted />
-      <FinalCTA />
+      <Suspense fallback={<SectionLoader />}>
+        <LiveCounters />
+        <FeaturesGrid />
+        <FoundersSection />
+        <HowToJoin />
+        <RecentlyAccepted />
+        <FinalCTA />
+      </Suspense>
       <Footer />
       <StickyApply />
     </div>
