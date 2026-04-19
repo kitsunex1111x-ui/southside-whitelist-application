@@ -75,7 +75,7 @@ const StaffApplication = () => {
         type: "staff",
         real_name: data.realName,
         discord: data.discord,
-        age: data.age,
+        age: parseInt(data.age, 10) || 16, // DB is INTEGER
         rdm: data.position,
         vdm: data.timezone,
         metagaming: data.availability,

@@ -66,7 +66,7 @@ const GangApplication = () => {
         type: "gang",
         real_name: data.gangName,
         discord: data.leaderDiscord,
-        age: data.memberCount,
+        age: parseInt(data.memberCount, 10) || 3, // DB is INTEGER
         rdm: data.gangType,
         vdm: data.territory,
         metagaming: data.rulesUnderstanding,
