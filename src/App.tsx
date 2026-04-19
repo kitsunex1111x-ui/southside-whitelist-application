@@ -7,6 +7,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import Apply from "./pages/Apply";
+import ApplicationsHub from "./pages/ApplicationsHub";
+import GangApplication from "./pages/GangApplication";
+import StaffApplication from "./pages/StaffApplication";
 import Auth from "./pages/Auth";
 import AuthCallback from "./pages/AuthCallback";
 import Dashboard from "./pages/Dashboard";
@@ -100,7 +103,10 @@ const App = () => {
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/auth/callback" element={<AuthCallback />} />
-                  <Route path="/apply" element={<ProtectedRoute><Apply /></ProtectedRoute>} />
+                  <Route path="/apply" element={<ProtectedRoute><ApplicationsHub /></ProtectedRoute>} />
+                  <Route path="/apply/whitelist" element={<ProtectedRoute><Apply /></ProtectedRoute>} />
+                  <Route path="/apply/gang" element={<ProtectedRoute><GangApplication /></ProtectedRoute>} />
+                  <Route path="/apply/staff" element={<ProtectedRoute><StaffApplication /></ProtectedRoute>} />
                   <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                   <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                   <Route path="/owner" element={<OwnerRoute><OwnerDashboard /></OwnerRoute>} />

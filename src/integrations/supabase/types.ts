@@ -5,6 +5,7 @@ export type Database = {
         Row: {
           id: string;
           user_id: string;
+          type: string | null;
           char_name: string;
           discord: string;
           age: string;
@@ -24,6 +25,7 @@ export type Database = {
         Insert: {
           id?: string;
           user_id: string;
+          type?: string | null;
           char_name: string;
           discord: string;
           age: string;
@@ -43,6 +45,7 @@ export type Database = {
         Update: {
           id?: string;
           user_id?: string;
+          type?: string | null;
           char_name?: string;
           discord?: string;
           age?: string;
