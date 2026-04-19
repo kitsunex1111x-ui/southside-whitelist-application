@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Hard timeout — guarantees loading never hangs forever on slow connections
     const timeoutId = setTimeout(() => {
       if (mounted) setLoading(false);
-    }, 8000);
+    }, 3000);
 
     // Initial session load on mount
     supabase.auth.getSession()

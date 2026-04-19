@@ -71,7 +71,7 @@ const Dashboard = () => {
     const fetchApplications = async (attempt = 1): Promise<void> => {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
 
         const { data, error } = await supabase
           .from("applications")

@@ -135,32 +135,9 @@ const AdminDashboard = () => {
           .eq("user_id", appData.user_id)
           .eq("role", "accepted");
 
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            await supabase.functions.invoke("sync-discord-roles", {
-              method: "POST",
-              body: { userId: appData.user_id, action: "accepted" },
-            });
-          }
-        } catch { /* Discord sync non-critical */ }
-
         if (!existing?.length) {
           await supabase.from("user_roles").insert({ user_id: appData.user_id, role: "accepted" });
         }
-      }
-
-      // Remove Discord role on rejection
-      if (status === "rejected" && appData?.user_id) {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            await supabase.functions.invoke("sync-discord-roles", {
-              method: "POST",
-              body: { userId: appData.user_id, action: "rejected" },
-            });
-          }
-        } catch { /* Discord sync non-critical */ }
       }
 
       // Write admin log with actor name embedded

@@ -114,23 +114,12 @@ const OwnerDashboard = () => {
       }
 
       // ── Roles ────────────────────────────────────────────────────────────
-      // Try Edge Function first; fall back to direct RLS query
-      let rawRoles: { id: string; user_id: string; role: AppRole; created_at: string }[] = [];
-
-      const { data: efResp } = await supabase.functions.invoke("get-user-roles", {
-        method: "POST", body: {},
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-
-      if (efResp?.data?.length) {
-        rawRoles = efResp.data;
-      } else {
-        const { data } = await supabase
-          .from("user_roles")
-          .select("id, user_id, role, created_at")
-          .order("created_at", { ascending: false });
-        rawRoles = data ?? [];
-      }
+      // Use direct RLS query (Edge Function removed - was causing 401 delays)
+      const { data: rolesData } = await supabase
+        .from("user_roles")
+        .select("id, user_id, role, created_at")
+        .order("created_at", { ascending: false });
+      const rawRoles = rolesData ?? [];
 
       // Fetch profiles for roles in a SEPARATE query (no FK join needed)
       const roleUids = [...new Set(rawRoles.map((r) => r.user_id))];
