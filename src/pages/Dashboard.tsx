@@ -111,8 +111,21 @@ const Dashboard = () => {
       }
     };
 
+    // Hard timeout - force stop loading after 3s regardless of fetch state
+    const hardTimeout = setTimeout(() => {
+      if (!cancelled) {
+        setLoading(false);
+        if (applications.length === 0 && !error) {
+          setError("Loading timed out. Please refresh.");
+        }
+      }
+    }, 3000);
+
     fetchApplications();
-    return () => { cancelled = true; };
+    return () => { 
+      cancelled = true; 
+      clearTimeout(hardTimeout);
+    };
   }, [user]);
 
   const displayName =
