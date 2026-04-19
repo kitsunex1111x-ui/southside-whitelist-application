@@ -41,12 +41,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const userRoles: AppRole[] = roleData?.map((r) => r.role) ?? [];
 
-      // Assign default "user" role on first login
+      // Assign default "user" role on first login.
+      // Uses upsert to avoid unique constraint error if role already exists.
       if (userRoles.length === 0) {
-        const { error: insertError } = await supabase
+        const { error: upsertError } = await supabase
           .from("user_roles")
-          .insert({ user_id: userId, role: "user" });
-        if (!insertError) userRoles.push("user");
+          .upsert({ user_id: userId, role: "user" }, { onConflict: "user_id" });
+        if (!upsertError) userRoles.push("user");
       }
 
       return userRoles;

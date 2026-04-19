@@ -178,7 +178,7 @@ const Apply = () => {
         user_id: user.id,
         real_name: data.realName,
         discord: data.discord,
-        age: data.age,
+        age: parseInt(data.age, 10), // DB column is INTEGER — must send number not string
         rdm: data.rdm,
         vdm: data.vdm,
         metagaming: data.metagaming,
@@ -188,37 +188,21 @@ const Apply = () => {
         traits: data.traits,
       };
       
-      // Insert with timeout and retry for slow Supabase free tier
-      let retries = 3;
-      let lastError = null;
-      
-      while (retries > 0) {
-        try {
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error("timeout")), 8000)
-          );
-          
-          const insertPromise = supabase.from("applications").insert(insertData);
-          
-          const result = await Promise.race([insertPromise, timeoutPromise]) as any;
-          
-          if (!result.error) {
-            setSubmitted(true);
-            toast.success("Application submitted successfully!");
-            return;
-          }
-          
-          lastError = result.error;
-          retries--;
-          if (retries > 0) await new Promise(r => setTimeout(r, 1000));
-        } catch (e: any) {
-          lastError = e;
-          retries--;
-          if (retries > 0) await new Promise(r => setTimeout(r, 1000));
-        }
+      const { error } = await supabase.from("applications").insert(insertData);
+
+      if (!error) {
+        setSubmitted(true);
+        toast.success("Application submitted successfully!");
+        return;
       }
 
-      toast.error("Failed to submit after retries: " + (lastError?.message || "Unknown error"));
+      // Unique constraint = user already has an application
+      if (error.code === "23505") {
+        toast.error("You already have an application. Check your dashboard.");
+        return;
+      }
+
+      toast.error("Failed to submit: " + error.message);
     } catch (e: any) {
       toast.error("Unexpected error: " + e.message);
     } finally {
