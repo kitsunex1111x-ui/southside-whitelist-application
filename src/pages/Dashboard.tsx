@@ -63,6 +63,9 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // IMMEDIATE log — happens on every render
+  console.log("[Dashboard] COMPONENT RENDER — user:", user ? "EXISTS" : "NULL", "user.id:", user?.id);
+
   useEffect(() => {
     console.log("[Dashboard] useEffect triggered, user?.id:", user?.id);
     if (!user?.id) {
