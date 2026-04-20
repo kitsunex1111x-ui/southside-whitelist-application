@@ -6,7 +6,11 @@ import { useAuth } from "@/hooks/useAuth";
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user, isAdmin, isOwner, signOut } = useAuth();
+  const { user, isAdmin, isOwner, signOut, loading: authLoading } = useAuth();
+  
+  // Don't show role-based links until auth is fully loaded (prevents flickering)
+  const showAdmin = !authLoading && isAdmin;
+  const showOwner = !authLoading && isOwner;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -36,12 +40,12 @@ const Navbar = () => {
               <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide flex items-center gap-1">
                 <User size={14} /> Dashboard
               </Link>
-              {isAdmin && (
+              {showAdmin && (
                 <Link to="/admin" className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide flex items-center gap-1">
                   <Shield size={14} /> Admin
                 </Link>
               )}
-              {isOwner && (
+              {showOwner && (
                 <Link to="/owner" className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide flex items-center gap-1">
                   <Crown size={14} /> Owner
                 </Link>
@@ -79,8 +83,8 @@ const Navbar = () => {
             {user ? (
               <>
                 <Link to="/dashboard" onClick={() => setMobileOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">Dashboard</Link>
-                {isAdmin && <Link to="/admin" onClick={() => setMobileOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">Admin</Link>}
-                {isOwner && <Link to="/owner" onClick={() => setMobileOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">Owner</Link>}
+                {showAdmin && <Link to="/admin" onClick={() => setMobileOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">Admin</Link>}
+                {showOwner && <Link to="/owner" onClick={() => setMobileOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">Owner</Link>}
                 <button onClick={() => { signOut(); setMobileOpen(false); }} className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide text-left">Logout</button>
               </>
             ) : (

@@ -64,7 +64,7 @@ const Dashboard = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) return;
 
     let cancelled = false;
     setLoading(true);
@@ -126,7 +126,7 @@ const Dashboard = () => {
       clearTimeout(requestTimeout);
       clearTimeout(hardTimeout);
     };
-  }, [user]);
+  }, [user?.id]); // Use stable string ID, not user object
 
   const displayName =
     user?.user_metadata?.full_name ||
