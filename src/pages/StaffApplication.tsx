@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { supabase } from "@/integrations/supabase/client";
+import { rawInsert } from "@/integrations/supabase/client";
 import { ArrowLeft, Check, Loader2, Shield, Clock, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
@@ -70,12 +70,12 @@ const StaffApplication = () => {
     setSubmitting(true);
 
     try {
-      const { error } = await supabase.from("applications").insert({
+      const { error } = await rawInsert("applications", {
         user_id: user.id,
         type: "staff",
         real_name: data.realName,
         discord: data.discord,
-        age: parseInt(data.age, 10) || 16, // DB is INTEGER
+        age: parseInt(data.age, 10) || 16,
         rdm: data.position,
         vdm: data.timezone,
         metagaming: data.availability,
@@ -83,7 +83,7 @@ const StaffApplication = () => {
         char_name: data.strengths,
         backstory: data.whyStaff,
         traits: data.scenarios,
-        status: "pending"
+        status: "pending",
       });
 
       if (error) {

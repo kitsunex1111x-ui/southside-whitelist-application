@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { supabase } from "@/integrations/supabase/client";
+import { rawInsert } from "@/integrations/supabase/client";
 import { ArrowLeft, Check, Loader2, Users, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
@@ -61,12 +61,12 @@ const GangApplication = () => {
     setSubmitting(true);
 
     try {
-      const { error } = await supabase.from("applications").insert({
+      const { error } = await rawInsert("applications", {
         user_id: user.id,
         type: "gang",
         real_name: data.gangName,
         discord: data.leaderDiscord,
-        age: parseInt(data.memberCount, 10) || 3, // DB is INTEGER
+        age: parseInt(data.memberCount, 10) || 3,
         rdm: data.gangType,
         vdm: data.territory,
         metagaming: data.rulesUnderstanding,
@@ -74,7 +74,7 @@ const GangApplication = () => {
         char_name: data.membersList,
         backstory: data.backstory,
         traits: data.whyJoin,
-        status: "pending"
+        status: "pending",
       });
 
       if (error) {

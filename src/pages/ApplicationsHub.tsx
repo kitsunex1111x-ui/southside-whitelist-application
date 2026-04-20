@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { rawSelect } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import {
@@ -30,16 +30,12 @@ const ApplicationsHub = () => {
     if (!user?.id) return;
 
     const check = async () => {
-      const { data } = await supabase
-        .from("applications")
-        .select("status")
-        .eq("user_id", user.id)
-        .in("type", ["whitelist", null as any])   // default type is 'whitelist'
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      setWlStatus((data?.status as WLStatus) ?? "none");
+      const { data } = await rawSelect<{ status: string }[]>(
+        "applications",
+        { user_id: `eq.${user.id}`, select: "status", order: "created_at.desc", limit: "1" }
+      );
+      const latest = Array.isArray(data) ? data[0] : null;
+      setWlStatus((latest?.status as WLStatus) ?? "none");
     };
 
     check();

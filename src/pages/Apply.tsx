@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { supabase } from "@/integrations/supabase/client";
+import { rawSelect, rawInsert } from "@/integrations/supabase/client";
 import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -178,29 +178,25 @@ const Apply = () => {
     setSubmitting(true);
 
     try {
-      // Check for existing pending application
-      const { data: existing } = await supabase
-        .from("applications")
-        .select("id, status")
-        .eq("user_id", user.id)
-        .in("status", ["pending", "accepted"])
-        .maybeSingle();
-
-      if (existing) {
-        if (existing.status === "accepted") {
-          toast.error("Your application has already been accepted!");
-        } else {
-          toast.error("You already have a pending application. Check your dashboard.");
-        }
+      // Check for existing pending/accepted application
+      const { data: existing } = await rawSelect<{ id: string; status: string }[]>(
+        "applications",
+        { user_id: `eq.${user.id}`, status: `in.(pending,accepted)`, select: "id,status", limit: "1" }
+      );
+      const found = Array.isArray(existing) ? existing[0] : null;
+      if (found) {
+        toast.error(found.status === "accepted"
+          ? "Your application has already been accepted!"
+          : "You already have a pending application. Check your dashboard.");
         setSubmitting(false);
         return;
       }
 
-      const insertData = {
+      const { error } = await rawInsert("applications", {
         user_id: user.id,
         real_name: data.realName,
         discord: data.discord,
-        age: parseInt(data.age, 10), // DB column is INTEGER — must send number not string
+        age: parseInt(data.age, 10),
         rdm: data.rdm,
         vdm: data.vdm,
         metagaming: data.metagaming,
@@ -208,22 +204,18 @@ const Apply = () => {
         char_name: data.charName,
         backstory: data.backstory,
         traits: data.traits,
-      };
-      
-      const { error } = await supabase.from("applications").insert(insertData);
+        type: "whitelist",
+      });
 
       if (!error) {
         setSubmitted(true);
         toast.success("Application submitted successfully!");
         return;
       }
-
-      // Unique constraint = user already has an application
-      if (error.code === "23505") {
+      if ((error as any).code === "23505") {
         toast.error("You already have an application. Check your dashboard.");
         return;
       }
-
       toast.error("Failed to submit: " + error.message);
     } catch (e: any) {
       toast.error("Unexpected error: " + e.message);

@@ -7,7 +7,7 @@ import {
   ReactNode,
 } from "react";
 import { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, rawSelect, rawInsert } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -32,22 +32,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchRoles = useCallback(async (userId: string): Promise<AppRole[]> => {
     try {
-      const { data: roleData, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId);
+      const { data: roleData, error } = await rawSelect<{ role: string }[]>(
+        "user_roles",
+        { user_id: `eq.${userId}`, select: "role" }
+      );
 
-      if (error) return [];
+      if (error || !roleData) return [];
 
-      const userRoles: AppRole[] = roleData?.map((r) => r.role) ?? [];
+      const userRoles: AppRole[] = roleData.map((r) => r.role as AppRole);
 
-      // Assign default "user" role on first login.
-      // Uses upsert to avoid unique constraint error if role already exists.
       if (userRoles.length === 0) {
-        const { error: upsertError } = await supabase
-          .from("user_roles")
-          .upsert({ user_id: userId, role: "user" }, { onConflict: "user_id" });
-        if (!upsertError) userRoles.push("user");
+        await rawInsert("user_roles", { user_id: userId, role: "user" });
+        userRoles.push("user" as AppRole);
       }
 
       return userRoles;

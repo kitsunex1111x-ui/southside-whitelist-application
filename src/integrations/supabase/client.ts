@@ -1,15 +1,160 @@
 import { createClient } from "@supabase/supabase-js";
+import type { Database } from "./types";
 
-// Correct project: sxvfmmqrgqlinxzuvjgv — using legacy JWT anon key
-// (publishable key format caused silent hang on all Supabase queries)
-const SUPABASE_URL = "https://sxvfmmqrgqlinxzuvjgv.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4dmZtbXFyZ3FsaW54enV2amd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5ODAxNzAsImV4cCI6MjA5MTU1NjE3MH0.ElJ8dTUs7b75lFuKchErbCbYpziCZPI_VwbYCGgjq_c";
+export const SUPABASE_URL = "https://sxvfmmqrgqlinxzuvjgv.supabase.co";
+export const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4dmZtbXFyZ3FsaW54enV2amd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5ODAxNzAsImV4cCI6MjA5MTU1NjE3MH0.ElJ8dTUs7b75lFuKchErbCbYpziCZPI_VwbYCGgjq_c";
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+// Supabase JS client — used ONLY for auth (login, session, OAuth)
+// All database queries go through rawQuery() below to avoid the
+// v2.101.x session-lock bug that causes every query to hang forever.
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     detectSessionInUrl: true,
     persistSession: true,
     autoRefreshToken: true,
     flowType: "implicit",
   },
+  // Disable realtime so it doesn't interfere with auth lock
+  realtime: { params: { eventsPerSecond: -1 } },
 });
+
+// ── Raw REST helper (bypasses the supabase-js session lock) ──────────────
+// Uses the PostgREST API directly via fetch.
+// Returns { data, error } to match supabase-js API shape.
+
+type RawResult<T> = Promise<{ data: T | null; error: { message: string } | null }>;
+
+async function getAuthHeader(): Promise<string> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data?.session?.access_token;
+    return token ? `Bearer ${token}` : `Bearer ${SUPABASE_ANON_KEY}`;
+  } catch {
+    return `Bearer ${SUPABASE_ANON_KEY}`;
+  }
+}
+
+export async function rawSelect<T = any>(
+  table: string,
+  params: Record<string, string> = {},
+  options: { single?: boolean } = {}
+): RawResult<T> {
+  try {
+    const authHeader = await getAuthHeader();
+    const qs = new URLSearchParams(params).toString();
+    const url = `${SUPABASE_URL}/rest/v1/${table}${qs ? "?" + qs : ""}`;
+
+    const res = await fetch(url, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: authHeader,
+        "Content-Type": "application/json",
+        Accept: options.single ? "application/vnd.pgrst.object+json" : "application/json",
+        Prefer: options.single ? "return=representation" : "",
+      },
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
+      return { data: null, error: { message: err.message ?? err.hint ?? `HTTP ${res.status}` } };
+    }
+
+    const data = await res.json();
+    return { data: data as T, error: null };
+  } catch (e: any) {
+    return { data: null, error: { message: e?.message ?? "Network error" } };
+  }
+}
+
+export async function rawInsert<T = any>(
+  table: string,
+  body: Record<string, any>
+): RawResult<T> {
+  try {
+    const authHeader = await getAuthHeader();
+    const url = `${SUPABASE_URL}/rest/v1/${table}`;
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: authHeader,
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
+      return { data: null, error: { message: err.message ?? err.hint ?? `HTTP ${res.status}`, ...err } };
+    }
+
+    const data = await res.json();
+    return { data: data as T, error: null };
+  } catch (e: any) {
+    return { data: null, error: { message: e?.message ?? "Network error" } };
+  }
+}
+
+export async function rawUpdate(
+  table: string,
+  filter: Record<string, string>,
+  body: Record<string, any>
+): RawResult<any> {
+  try {
+    const authHeader = await getAuthHeader();
+    const qs = new URLSearchParams(filter).toString();
+    const url = `${SUPABASE_URL}/rest/v1/${table}?${qs}`;
+
+    const res = await fetch(url, {
+      method: "PATCH",
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: authHeader,
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
+      return { data: null, error: { message: err.message ?? `HTTP ${res.status}` } };
+    }
+
+    const data = await res.json();
+    return { data, error: null };
+  } catch (e: any) {
+    return { data: null, error: { message: e?.message ?? "Network error" } };
+  }
+}
+
+export async function rawDelete(
+  table: string,
+  filter: Record<string, string>
+): RawResult<any> {
+  try {
+    const authHeader = await getAuthHeader();
+    const qs = new URLSearchParams(filter).toString();
+    const url = `${SUPABASE_URL}/rest/v1/${table}?${qs}`;
+    const res = await fetch(url, {
+      method: "DELETE",
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: authHeader,
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
+      return { data: null, error: { message: err.message ?? `HTTP ${res.status}` } };
+    }
+    const data = await res.json().catch(() => null);
+    return { data, error: null };
+  } catch (e: any) {
+    return { data: null, error: { message: e?.message ?? "Network error" } };
+  }
+}
