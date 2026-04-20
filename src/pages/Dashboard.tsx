@@ -64,65 +64,44 @@ const Dashboard = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log("[Dashboard] useEffect triggered — user?.id:", user?.id, "| timestamp:", Date.now());
-
-    if (!user?.id) {
-      console.log("[Dashboard] No user.id — returning early. Full user object:", user);
-      return;
-    }
+    if (!user?.id) return;
 
     let cancelled = false;
     setLoading(true);
     setError(null);
 
-    console.log("[Dashboard] Starting fetch for user:", user.id);
-
-    // Single 8s timeout — no AbortController (was the root cause: pre-aborted signal silently dropped requests)
+    // Single timeout — no AbortController (pre-aborted signal silently drops requests)
     const timeoutId = setTimeout(() => {
-      console.log("[Dashboard] ⏰ TIMEOUT fired at 8s — cancelled flag is:", cancelled);
       if (!cancelled) {
         setLoading(false);
-        setError("Loading applications timed out (debug mode). Please refresh.");
+        setError("Loading applications timed out. Please refresh.");
       }
-    }, 8000);
+    }, 10000);
 
     const fetchOnce = async () => {
       try {
-        console.log("[Dashboard] 📡 About to call supabase.from('applications')...");
-        const startTime = Date.now();
-
-        // NO .abortSignal() — previous version passed a potentially pre-aborted signal,
-        // causing the browser to silently drop the request before it hit the network.
         const { data, error } = await supabase
           .from("applications")
           .select("*")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false });
 
-        const elapsed = Date.now() - startTime;
-        console.log("[Dashboard] ✅ Supabase responded in", elapsed, "ms — data:", data, "| error:", error);
-
-        if (cancelled) {
-          console.log("[Dashboard] Cancelled after response — ignoring result");
-          return;
-        }
-
+        if (cancelled) return;
         clearTimeout(timeoutId);
 
         if (error) {
-          console.error("[Dashboard] ❌ Supabase error object:", error);
-          setError("DB Error: " + error.message);
+          console.error("[Dashboard] fetch error:", error);
+          setError("Failed to load applications. Please try again.");
           setApplications([]);
         } else {
-          console.log("[Dashboard] 🎉 Success — got", data?.length, "application(s)");
           setApplications(data ?? []);
           setError(null);
         }
       } catch (err: any) {
         clearTimeout(timeoutId);
         if (cancelled) return;
-        console.error("[Dashboard] 💥 Exception during fetch:", err?.name, err?.message, err);
-        setError("Exception: " + (err?.message ?? String(err)));
+        console.error("[Dashboard] fetch exception:", err);
+        setError("Network error. Please check your connection and try again.");
         setApplications([]);
       } finally {
         if (!cancelled) setLoading(false);
@@ -132,17 +111,23 @@ const Dashboard = () => {
     fetchOnce();
 
     return () => {
-      console.log("[Dashboard] 🧹 Cleanup running — setting cancelled=true");
       cancelled = true;
       clearTimeout(timeoutId);
     };
   }, [user?.id]);
 
   const displayName =
+    user?.user_metadata?.custom_claims?.global_name ||
     user?.user_metadata?.full_name ||
     user?.user_metadata?.user_name ||
     user?.email?.split("@")[0] ||
     "Player";
+
+  // Discord tag e.g. "mejri0#0" or just username
+  const discordHandle =
+    user?.user_metadata?.name ||
+    user?.user_metadata?.user_name ||
+    null;
 
   const avatarUrl = user?.user_metadata?.avatar_url;
   const initials = displayName[0]?.toUpperCase() ?? "U";
@@ -177,7 +162,11 @@ const Dashboard = () => {
               <div className="flex-1 min-w-0">
                 <h2 className="text-xl sm:text-2xl font-bold truncate">{displayName}</h2>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-white/75 text-sm">
-                  <span className="flex items-center gap-1.5">{DISCORD_ICON} Discord</span>
+                  {discordHandle && (
+                    <span className="flex items-center gap-1.5 font-medium">
+                      {DISCORD_ICON} {discordHandle}
+                    </span>
+                  )}
                   <span className="text-white/50 text-xs truncate">{user?.email}</span>
                 </div>
               </div>
@@ -242,12 +231,26 @@ const Dashboard = () => {
                           {app.char_name?.[0]?.toUpperCase() ?? "?"}
                         </div>
                         <div className="min-w-0">
-                          <h3 className="font-heading text-lg font-semibold truncate">
-                            {app.char_name || "Unknown Character"}
-                          </h3>
-                          <p className="text-sm text-muted-foreground truncate">
-                            {app.discord || "No Discord"}
-                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-heading text-lg font-semibold truncate">
+                              {app.char_name || "Unknown Character"}
+                            </h3>
+                            {/* application type badge */}
+                            <span className={`text-[10px] font-heading uppercase tracking-widest px-2 py-0.5 rounded-full border flex-shrink-0 ${
+                              app.type === "gang"
+                                ? "bg-red-500/10 text-red-400 border-red-500/30"
+                                : app.type === "staff"
+                                ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                                : "bg-primary/10 text-primary border-primary/30"
+                            }`}>
+                              {app.type === "gang" ? "Gang" : app.type === "staff" ? "Staff" : "Whitelist"}
+                            </span>
+                          </div>
+                          {app.discord && (
+                            <p className="text-sm text-muted-foreground flex items-center gap-1 truncate mt-0.5">
+                              {DISCORD_ICON} {app.discord}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className={`flex items-center gap-2 px-4 py-2 rounded-full border self-start sm:self-auto ${sc.bg}`}>

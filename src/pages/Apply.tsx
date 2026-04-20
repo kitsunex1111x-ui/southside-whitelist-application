@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import Navbar from "@/components/Navbar";
@@ -39,6 +39,30 @@ const Apply = () => {
   const update = (field: keyof FormData, value: string) => {
     setData((prev) => ({ ...prev, [field]: value }));
   };
+
+  // Auto-fill Discord ID from OAuth provider metadata
+  useEffect(() => {
+    if (!user) return;
+    const discordId =
+      user.user_metadata?.provider_id ||        // raw Discord snowflake ID
+      user.user_metadata?.sub ||
+      "";
+    const discordHandle =
+      user.user_metadata?.name ||               // e.g. "mejri0#0"
+      user.user_metadata?.full_name ||
+      "";
+    if (discordId) {
+      setData((prev) => ({
+        ...prev,
+        discord: prev.discord || discordId,    // only if field is empty
+      }));
+    } else if (discordHandle) {
+      setData((prev) => ({
+        ...prev,
+        discord: prev.discord || discordHandle,
+      }));
+    }
+  }, [user]);
 
   const validateStep = (stepNumber: number) => {
     switch (stepNumber) {
@@ -135,10 +159,8 @@ const Apply = () => {
       return false;
     }
     
-    const discordPattern = /^\d{17,19}$/;
-    const cleanDiscord = data.discord.replace(/\D/g, '');
-    if (!discordPattern.test(cleanDiscord)) {
-      toast.error("Please enter a valid Discord ID (17-19 digits)");
+    if (!data.discord.trim()) {
+      toast.error("Discord ID is required");
       return false;
     }
     
@@ -261,7 +283,7 @@ const Apply = () => {
                   <div className="space-y-6">
                     <h2 className="font-heading text-2xl font-semibold uppercase tracking-wide mb-6">Personal Info</h2>
                     <InputField label="Real Name" value={data.realName} onChange={(v) => update("realName", v)} placeholder="e.g. Ahmed" required showErrors={validationAttempts[0] || false} />
-                    <InputField label="Discord ID" value={data.discord} onChange={(v) => update("discord", v)} placeholder="e.g. 123456789012345678" required showErrors={validationAttempts[0] || false} />
+                    <InputField label="Discord ID" value={data.discord} onChange={(v) => update("discord", v)} placeholder="e.g. 123456789012345678" required showErrors={validationAttempts[0] || false} readOnly={!!user?.user_metadata?.provider_id || !!user?.user_metadata?.sub} hint={user?.user_metadata?.name ? `Auto-filled: ${user.user_metadata.name}` : undefined} />
                     <InputField label="Age" value={data.age} onChange={(v) => update("age", v)} placeholder="e.g. 18" type="number" required showErrors={validationAttempts[0] || false} />
                   </div>
                 )}
@@ -351,7 +373,7 @@ const Apply = () => {
   );
 };
 
-const InputField = ({ label, value, onChange, placeholder, type = "text", required = false, showErrors = false }: { label: string; value: string; onChange: (v: string) => void; placeholder: string; type?: string; required?: boolean; showErrors?: boolean }) => {
+const InputField = ({ label, value, onChange, placeholder, type = "text", required = false, showErrors = false, readOnly = false, hint }: { label: string; value: string; onChange: (v: string) => void; placeholder: string; type?: string; required?: boolean; showErrors?: boolean; readOnly?: boolean; hint?: string }) => {
   return (
     <div>
       <label className="block text-sm font-medium mb-2 uppercase tracking-wide">
@@ -360,15 +382,19 @@ const InputField = ({ label, value, onChange, placeholder, type = "text", requir
       <input
         type={type}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => !readOnly && onChange(e.target.value)}
+        readOnly={readOnly}
         placeholder={placeholder}
         className={`w-full bg-secondary border rounded-md px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 transition-all ${
-          !value.trim() && required && showErrors
-            ? 'border-red-400 focus:border-red-400 focus:ring-red-400'
-            : 'border-border focus:border-primary focus:ring-primary'
+          readOnly
+            ? "opacity-70 cursor-default border-border"
+            : !value.trim() && required && showErrors
+            ? "border-red-400 focus:border-red-400 focus:ring-red-400"
+            : "border-border focus:border-primary focus:ring-primary"
         }`}
       />
-      {!value.trim() && required && showErrors && (
+      {hint && <p className="text-xs text-green-400 mt-1 flex items-center gap-1">✓ {hint}</p>}
+      {!readOnly && !value.trim() && required && showErrors && (
         <p className="text-xs text-red-400 mt-1">This field is required</p>
       )}
     </div>
