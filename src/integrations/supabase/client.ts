@@ -28,8 +28,10 @@ type RawResult<T> = Promise<{ data: T | null; error: { message: string } | null 
 function getAuthHeader(): string {
   // Bypass supabase.auth.getSession() to avoid the session-lock deadlock.
   // Get token directly from localStorage where Supabase stores it.
+  // Storage key format: sb-<project-ref>-auth-token
   try {
-    const storageKey = `sb-${SUPABASE_URL.replace("https://", "").replace(".", "-")}-auth-token`;
+    const projectRef = SUPABASE_URL.replace("https://", "").split(".")[0]; // sxvfmmqrgqlinxzuvjgv
+    const storageKey = `sb-${projectRef}-auth-token`;
     const raw = localStorage.getItem(storageKey);
     if (raw) {
       const parsed = JSON.parse(raw);
