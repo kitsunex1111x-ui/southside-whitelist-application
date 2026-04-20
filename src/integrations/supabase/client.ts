@@ -25,14 +25,21 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
 
 type RawResult<T> = Promise<{ data: T | null; error: { message: string } | null }>;
 
-async function getAuthHeader(): Promise<string> {
+function getAuthHeader(): string {
+  // Bypass supabase.auth.getSession() to avoid the session-lock deadlock.
+  // Get token directly from localStorage where Supabase stores it.
   try {
-    const { data } = await supabase.auth.getSession();
-    const token = data?.session?.access_token;
-    return token ? `Bearer ${token}` : `Bearer ${SUPABASE_ANON_KEY}`;
+    const storageKey = `sb-${SUPABASE_URL.replace("https://", "").replace(".", "-")}-auth-token`;
+    const raw = localStorage.getItem(storageKey);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const token = parsed?.access_token || parsed?.session?.access_token;
+      if (token) return `Bearer ${token}`;
+    }
   } catch {
-    return `Bearer ${SUPABASE_ANON_KEY}`;
+    // Fallback to anon key if anything fails
   }
+  return `Bearer ${SUPABASE_ANON_KEY}`;
 }
 
 export async function rawSelect<T = any>(
@@ -41,7 +48,7 @@ export async function rawSelect<T = any>(
   options: { single?: boolean } = {}
 ): RawResult<T> {
   try {
-    const authHeader = await getAuthHeader();
+    const authHeader = getAuthHeader();
     const qs = new URLSearchParams(params).toString();
     const url = `${SUPABASE_URL}/rest/v1/${table}${qs ? "?" + qs : ""}`;
 
@@ -72,7 +79,7 @@ export async function rawInsert<T = any>(
   body: Record<string, any>
 ): RawResult<T> {
   try {
-    const authHeader = await getAuthHeader();
+    const authHeader = getAuthHeader();
     const url = `${SUPABASE_URL}/rest/v1/${table}`;
 
     const res = await fetch(url, {
@@ -104,7 +111,7 @@ export async function rawUpdate(
   body: Record<string, any>
 ): RawResult<any> {
   try {
-    const authHeader = await getAuthHeader();
+    const authHeader = getAuthHeader();
     const qs = new URLSearchParams(filter).toString();
     const url = `${SUPABASE_URL}/rest/v1/${table}?${qs}`;
 
@@ -136,7 +143,7 @@ export async function rawDelete(
   filter: Record<string, string>
 ): RawResult<any> {
   try {
-    const authHeader = await getAuthHeader();
+    const authHeader = getAuthHeader();
     const qs = new URLSearchParams(filter).toString();
     const url = `${SUPABASE_URL}/rest/v1/${table}?${qs}`;
     const res = await fetch(url, {
