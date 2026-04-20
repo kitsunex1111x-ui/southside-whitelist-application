@@ -107,21 +107,54 @@ const OwnerDashboard = () => {
   if (!isOwner) return <Navigate to="/dashboard" replace />;
 
   const addRole = async () => {
-    const discordId = newDiscordId.trim();
-    if (!discordId) return toast.error("Enter a Discord ID");
-    if (!/^\d{17,19}$/.test(discordId)) return toast.error("Discord ID must be 17–19 digits");
+    const input = newDiscordId.trim();
+    if (!input) return toast.error("Enter a Discord ID or username");
+    
     setAdding(true);
-    const { data: apps } = await rawSelect<{ user_id: string; discord: string }[]>(
-      "applications", { discord: `eq.${discordId}`, select: "user_id,discord", limit: "1" }
-    );
-    const app = Array.isArray(apps) ? apps[0] : null;
-    if (!app) { toast.error("No application found for that Discord ID."); setAdding(false); return; }
-    const { error } = await rawInsert("user_roles", { user_id: app.user_id, role: newRole });
-    if (error) { toast.error(error.message.includes("duplicate") ? "User already has that role." : error.message); }
-    else {
-      await rawInsert("admin_logs", { actor_user_id: user!.id, action: "add_role", target_id: app.user_id,
-        details: { actor_name: actorName(), role: newRole, discord: discordId } });
-      toast.success(`${newRole} assigned to ${discordId}`);
+    let targetUserId: string | null = null;
+    let identifier = input;
+
+    // Try to find by Discord ID (numeric 17-19 digits)
+    if (/^\d{17,19}$/.test(input)) {
+      const { data: apps } = await rawSelect<{ user_id: string; discord: string }[]>(
+        "applications", { discord: `eq.${input}`, select: "user_id,discord", limit: "1" }
+      );
+      const app = Array.isArray(apps) ? apps[0] : null;
+      if (app) {
+        targetUserId = app.user_id;
+      } else {
+        // Try profiles by username
+        const { data: profs } = await rawSelect<{ user_id: string; username: string }[]>(
+          "profiles", { username: `eq.${input}`, select: "user_id,username", limit: "1" }
+        );
+        const prof = Array.isArray(profs) ? profs[0] : null;
+        if (prof) targetUserId = prof.user_id;
+      }
+    } else {
+      // Try to find by username
+      const { data: profs } = await rawSelect<{ user_id: string; username: string }[]>(
+        "profiles", { username: `eq.${input}`, select: "user_id,username", limit: "1" }
+      );
+      const prof = Array.isArray(profs) ? profs[0] : null;
+      if (prof) {
+        targetUserId = prof.user_id;
+        identifier = prof.username;
+      }
+    }
+
+    if (!targetUserId) { 
+      toast.error("No user found. They must login once to create a profile."); 
+      setAdding(false); 
+      return; 
+    }
+    
+    const { error } = await rawInsert("user_roles", { user_id: targetUserId, role: newRole });
+    if (error) { 
+      toast.error(error.message.includes("duplicate") ? "User already has that role." : error.message); 
+    } else {
+      await rawInsert("admin_logs", { actor_user_id: user!.id, action: "add_role", target_id: targetUserId,
+        details: { actor_name: actorName(), role: newRole, identifier } });
+      toast.success(`${newRole} assigned to ${identifier}`);
       setNewDiscordId(""); fetchData(true);
     }
     setAdding(false);
@@ -163,10 +196,11 @@ const OwnerDashboard = () => {
               </h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2 uppercase tracking-wide">Discord ID</label>
+                  <label className="block text-sm font-medium mb-2 uppercase tracking-wide">Discord ID or Username</label>
                   <input type="text" value={newDiscordId} onChange={e => setNewDiscordId(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && addRole()} placeholder="e.g. 123456789012345678"
+                    onKeyDown={e => e.key === "Enter" && addRole()} placeholder="e.g. 123456789012345678 or username"
                     className="w-full bg-secondary border border-border rounded-md px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" />
+                  <p className="text-xs text-muted-foreground mt-1">User must login once to create their profile first.</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2 uppercase tracking-wide">Role</label>
@@ -175,6 +209,23 @@ const OwnerDashboard = () => {
                     <option value="admin">Admin</option>
                     <option value="owner">Owner</option>
                   </select>
+                </div>
+                {/* Role Permissions Info */}
+                <div className="bg-secondary/50 rounded-lg p-3 text-xs text-muted-foreground space-y-1 border border-border">
+                  <p className="font-medium text-foreground flex items-center gap-1"><Shield size={12} className="text-primary"/> <strong>Admin:</strong></p>
+                  <ul className="ml-4 list-disc space-y-0.5">
+                    <li>Review whitelist applications</li>
+                    <li>Accept/reject applicants</li>
+                    <li>Add admin notes</li>
+                    <li>Access Admin Dashboard</li>
+                  </ul>
+                  <p className="font-medium text-foreground flex items-center gap-1 mt-2"><Shield size={12} className="text-primary"/> <strong>Owner:</strong></p>
+                  <ul className="ml-4 list-disc space-y-0.5">
+                    <li>Everything Admin can do</li>
+                    <li>Assign/remove roles</li>
+                    <li>View activity logs</li>
+                    <li>Full Owner Panel access</li>
+                  </ul>
                 </div>
                 <button onClick={addRole} disabled={adding}
                   className="w-full gradient-red text-primary-foreground py-3 rounded-md font-heading uppercase tracking-wider text-sm hover:box-glow-red transition-all disabled:opacity-70 flex items-center justify-center gap-2">
