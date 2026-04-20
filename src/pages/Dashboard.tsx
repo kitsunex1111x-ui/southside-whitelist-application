@@ -64,69 +64,79 @@ const Dashboard = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user?.id) return;
+    console.log("[Dashboard] useEffect triggered — user?.id:", user?.id, "| timestamp:", Date.now());
+
+    if (!user?.id) {
+      console.log("[Dashboard] No user.id — returning early. Full user object:", user);
+      return;
+    }
 
     let cancelled = false;
     setLoading(true);
     setError(null);
 
-    const timeoutMs = 4000; // request timeout
-    const hardUiMs = 3000;   // skeleton timeout
+    console.log("[Dashboard] Starting fetch for user:", user.id);
 
-    const hardTimeout = setTimeout(() => {
-      if (cancelled) return;
-      setLoading(false);
-      setError("Loading applications timed out. Please refresh.");
-    }, hardUiMs);
-
-    const controller = new AbortController();
-    const requestTimeout = setTimeout(() => controller.abort(), timeoutMs);
+    // Single 8s timeout — no AbortController (was the root cause: pre-aborted signal silently dropped requests)
+    const timeoutId = setTimeout(() => {
+      console.log("[Dashboard] ⏰ TIMEOUT fired at 8s — cancelled flag is:", cancelled);
+      if (!cancelled) {
+        setLoading(false);
+        setError("Loading applications timed out (debug mode). Please refresh.");
+      }
+    }, 8000);
 
     const fetchOnce = async () => {
       try {
+        console.log("[Dashboard] 📡 About to call supabase.from('applications')...");
+        const startTime = Date.now();
+
+        // NO .abortSignal() — previous version passed a potentially pre-aborted signal,
+        // causing the browser to silently drop the request before it hit the network.
         const { data, error } = await supabase
           .from("applications")
           .select("*")
           .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .abortSignal(controller.signal);
+          .order("created_at", { ascending: false });
 
-        if (cancelled) return;
+        const elapsed = Date.now() - startTime;
+        console.log("[Dashboard] ✅ Supabase responded in", elapsed, "ms — data:", data, "| error:", error);
 
-        if (error) {
-          console.error("[Dashboard] Applications fetch error:", error);
-          setError("Failed to load applications. Please try again.");
-          setApplications([]);
+        if (cancelled) {
+          console.log("[Dashboard] Cancelled after response — ignoring result");
           return;
         }
-        setApplications(data ?? []);
-        setError(null);
-      } catch (err: any) {
-        if (cancelled) return;
 
-        // If abort happened, show timeout message
-        if (err?.name === "AbortError" || controller.signal.aborted) {
-          setError("Loading applications timed out. Please refresh.");
+        clearTimeout(timeoutId);
+
+        if (error) {
+          console.error("[Dashboard] ❌ Supabase error object:", error);
+          setError("DB Error: " + error.message);
+          setApplications([]);
         } else {
-          console.error("[Dashboard] Fetch exception:", err);
-          setError("Network error. Please check your connection and try again.");
+          console.log("[Dashboard] 🎉 Success — got", data?.length, "application(s)");
+          setApplications(data ?? []);
+          setError(null);
         }
+      } catch (err: any) {
+        clearTimeout(timeoutId);
+        if (cancelled) return;
+        console.error("[Dashboard] 💥 Exception during fetch:", err?.name, err?.message, err);
+        setError("Exception: " + (err?.message ?? String(err)));
         setApplications([]);
       } finally {
         if (!cancelled) setLoading(false);
-        clearTimeout(requestTimeout);
-        clearTimeout(hardTimeout);
       }
     };
+
     fetchOnce();
 
     return () => {
+      console.log("[Dashboard] 🧹 Cleanup running — setting cancelled=true");
       cancelled = true;
-      controller.abort();
-      clearTimeout(requestTimeout);
-      clearTimeout(hardTimeout);
+      clearTimeout(timeoutId);
     };
-  }, [user?.id]); // Use stable string ID, not user object
+  }, [user?.id]);
 
   const displayName =
     user?.user_metadata?.full_name ||
