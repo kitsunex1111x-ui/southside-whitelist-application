@@ -64,14 +64,21 @@ const Dashboard = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user?.id) return;
+    console.log("[Dashboard] useEffect triggered, user?.id:", user?.id);
+    if (!user?.id) {
+      console.log("[Dashboard] No user.id, returning early");
+      return;
+    }
 
     let cancelled = false;
     setLoading(true);
     setError(null);
 
+    console.log("[Dashboard] Starting fetch for user:", user.id);
+
     // Single timeout — no AbortController (pre-aborted signal silently drops requests)
     const timeoutId = setTimeout(() => {
+      console.log("[Dashboard] TIMEOUT fired at 10s — cancelled:", cancelled);
       if (!cancelled) {
         setLoading(false);
         setError("Loading applications timed out. Please refresh.");
@@ -80,27 +87,35 @@ const Dashboard = () => {
 
     const fetchOnce = async () => {
       try {
+        console.log("[Dashboard] About to call supabase.from('applications')...");
+        
         const { data, error } = await supabase
           .from("applications")
           .select("*")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false });
 
-        if (cancelled) return;
+        console.log("[Dashboard] Supabase returned:", { data, error, dataLength: data?.length });
+
+        if (cancelled) {
+          console.log("[Dashboard] Cancelled, ignoring result");
+          return;
+        }
         clearTimeout(timeoutId);
 
         if (error) {
-          console.error("[Dashboard] fetch error:", error);
+          console.error("[Dashboard] Supabase error:", error);
           setError("Failed to load applications. Please try again.");
           setApplications([]);
         } else {
+          console.log("[Dashboard] Success — got", data?.length || 0, "applications");
           setApplications(data ?? []);
           setError(null);
         }
       } catch (err: any) {
         clearTimeout(timeoutId);
         if (cancelled) return;
-        console.error("[Dashboard] fetch exception:", err);
+        console.error("[Dashboard] Fetch exception:", err);
         setError("Network error. Please check your connection and try again.");
         setApplications([]);
       } finally {
@@ -111,6 +126,7 @@ const Dashboard = () => {
     fetchOnce();
 
     return () => {
+      console.log("[Dashboard] Cleanup running");
       cancelled = true;
       clearTimeout(timeoutId);
     };
