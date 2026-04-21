@@ -29,9 +29,10 @@ const initialData: StaffFormData = {
 
 const positions = [
   { value: "support", label: "Support Staff - Help players with issues" },
-  { value: "mod", label: "Moderator - Enforce rules, handle reports" },
-  { value: "admin", label: "Admin - Full server management" },
-  { value: "developer", label: "Developer - Scripts, systems, fixes" }
+  { value: "trial", label: "Trial Staff - On probation, learning the ropes" },
+  { value: "whitelister", label: "Whitelister - Process whitelist applications" },
+  { value: "admin", label: "Administrator - Full server management" },
+  { value: "headadmin", label: "Head Admin - Lead the staff team" }
 ];
 
 const StaffApplication = () => {
@@ -49,7 +50,6 @@ const StaffApplication = () => {
     if (!data.realName.trim()) { toast.error("Enter your real name"); return false; }
     if (!data.age || parseInt(data.age) < 16) { toast.error("Must be 16+ years old"); return false; }
     if (!data.discord.trim()) { toast.error("Enter Discord ID"); return false; }
-    if (!data.timezone.trim()) { toast.error("Enter your timezone"); return false; }
     if (!data.availability.trim()) { toast.error("Enter availability"); return false; }
     if (!data.experience.trim() || data.experience.length < 50) { 
       toast.error("Experience must be at least 50 characters"); return false; 
@@ -77,7 +77,7 @@ const StaffApplication = () => {
         discord: data.discord,
         age: parseInt(data.age, 10) || 16,
         rdm: data.position,
-        vdm: data.timezone,
+        vdm: "N/A",
         metagaming: data.availability,
         powergaming: data.experience,
         char_name: data.strengths,
@@ -200,20 +200,6 @@ const StaffApplication = () => {
                 onChange={(e) => update("discord", e.target.value)}
                 className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                 placeholder="username#0000"
-              />
-            </div>
-
-            {/* Timezone */}
-            <div>
-              <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-                <Clock size={16} /> Timezone *
-              </label>
-              <input
-                type="text"
-                value={data.timezone}
-                onChange={(e) => update("timezone", e.target.value)}
-                className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                placeholder="e.g., EST, GMT+1, PST"
               />
             </div>
 
