@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { rawInsert } from "@/integrations/supabase/client";
-import { ArrowLeft, Check, Loader2, Shield, Clock, MessageSquare } from "lucide-react";
+import { ArrowLeft, Check, Loader2, Shield, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
 interface StaffFormData {
@@ -12,7 +12,6 @@ interface StaffFormData {
   realName: string;
   age: string;
   discord: string;
-  timezone: string;
   availability: string;
   experience: string;
   whyStaff: string;
@@ -22,17 +21,17 @@ interface StaffFormData {
 }
 
 const initialData: StaffFormData = {
-  position: "", realName: "", age: "", discord: "", timezone: "",
-  availability: "", experience: "", whyStaff: "", scenarios: "",
-  strengths: "", weaknesses: ""
+  position: "", realName: "", age: "", discord: "",
+  availability: "", experience: "", whyStaff: "",
+  scenarios: "", strengths: "", weaknesses: "",
 };
 
 const positions = [
-  { value: "support", label: "Support Staff - Help players with issues" },
-  { value: "trial", label: "Trial Staff - On probation, learning the ropes" },
-  { value: "whitelister", label: "Whitelister - Process whitelist applications" },
-  { value: "admin", label: "Administrator - Full server management" },
-  { value: "headadmin", label: "Head Admin - Lead the staff team" }
+  { value: "support",   label: "Support Staff — Help players with issues" },
+  { value: "trial",     label: "Trial Staff — On probation, learning the ropes" },
+  { value: "whitelister", label: "Whitelister — Process whitelist applications" },
+  { value: "administrator", label: "Administrator — Full server management" },
+  { value: "headadmin", label: "Head Admin — Lead the staff team" },
 ];
 
 const StaffApplication = () => {
@@ -42,22 +41,22 @@ const StaffApplication = () => {
   const [submitted, setSubmitted] = useState(false);
 
   const update = (field: keyof StaffFormData, value: string) => {
-    setData((prev) => ({ ...prev, [field]: value }));
+    setData(prev => ({ ...prev, [field]: value }));
   };
 
   const validate = () => {
-    if (!data.position) { toast.error("Select a position"); return false; }
-    if (!data.realName.trim()) { toast.error("Enter your real name"); return false; }
+    if (!data.position)            { toast.error("Select a position"); return false; }
+    if (!data.realName.trim())     { toast.error("Enter your real name"); return false; }
     if (!data.age || parseInt(data.age) < 16) { toast.error("Must be 16+ years old"); return false; }
-    if (!data.discord.trim()) { toast.error("Enter Discord ID"); return false; }
-    if (!data.availability.trim()) { toast.error("Enter availability"); return false; }
-    if (!data.experience.trim() || data.experience.length < 50) { 
-      toast.error("Experience must be at least 50 characters"); return false; 
+    if (!data.discord.trim())      { toast.error("Enter your Discord ID"); return false; }
+    if (!data.availability.trim()) { toast.error("Enter your availability"); return false; }
+    if (!data.experience.trim() || data.experience.length < 50) {
+      toast.error("Experience must be at least 50 characters"); return false;
     }
-    if (!data.whyStaff.trim() || data.whyStaff.length < 50) { 
-      toast.error("Why staff must be at least 50 characters"); return false; 
+    if (!data.whyStaff.trim() || data.whyStaff.length < 50) {
+      toast.error("Why staff must be at least 50 characters"); return false;
     }
-    if (!data.scenarios.trim()) { toast.error("Answer scenario questions"); return false; }
+    if (!data.scenarios.trim()) { toast.error("Answer the scenario questions"); return false; }
     if (!data.strengths.trim()) { toast.error("List your strengths"); return false; }
     if (!data.weaknesses.trim()) { toast.error("List your weaknesses"); return false; }
     return true;
@@ -66,32 +65,27 @@ const StaffApplication = () => {
   const handleSubmit = async () => {
     if (!validate()) return;
     if (!user) { toast.error("Please login first"); return; }
-
     setSubmitting(true);
-
     try {
       const { error } = await rawInsert("applications", {
-        user_id: user.id,
-        type: "staff",
-        real_name: data.realName,
-        discord: data.discord,
-        age: parseInt(data.age, 10) || 16,
-        rdm: data.position,
-        vdm: "N/A",
-        metagaming: data.availability,
+        user_id:     user.id,
+        type:        "staff",
+        real_name:   data.realName,
+        discord:     data.discord,
+        age:         parseInt(data.age, 10) || 16,
+        rdm:         data.position,
+        vdm:         "N/A",
+        metagaming:  data.availability,
         powergaming: data.experience,
-        char_name: data.strengths,
-        backstory: data.whyStaff,
-        traits: data.scenarios,
-        status: "pending",
+        char_name:   data.strengths,
+        backstory:   data.whyStaff,
+        traits:      data.scenarios,
+        status:      "pending",
       });
-
       if (error) {
-        if (error.code === "23505") {
-          toast.error("You already have a pending application!");
-        } else {
-          toast.error("Failed to submit: " + error.message);
-        }
+        toast.error(error.message.includes("23505")
+          ? "You already have a pending application!"
+          : "Failed to submit: " + error.message);
       } else {
         setSubmitted(true);
         toast.success("Staff application submitted!");
@@ -112,9 +106,7 @@ const StaffApplication = () => {
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-600 to-blue-800 mx-auto mb-6 flex items-center justify-center">
               <Check className="w-10 h-10 text-white" />
             </div>
-            <h1 className="font-heading text-4xl font-bold uppercase tracking-wider mb-4">
-              Application Submitted
-            </h1>
+            <h1 className="font-heading text-4xl font-bold uppercase tracking-wider mb-4">Application Submitted</h1>
             <p className="text-muted-foreground mb-8 max-w-md mx-auto">
               Your staff application has been received. We'll review your experience and contact you soon.
             </p>
@@ -131,37 +123,29 @@ const StaffApplication = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
       <div className="pt-24 pb-20">
         <div className="container mx-auto px-4 max-w-3xl">
-          
-          {/* Header */}
+
           <div className="flex items-center gap-4 mb-8">
             <Link to="/apply" className="p-2 rounded-full hover:bg-secondary transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div>
-              <h1 className="font-heading text-3xl font-bold uppercase tracking-wider">
-                Staff Application
-              </h1>
+              <h1 className="font-heading text-3xl font-bold uppercase tracking-wider">Staff Application</h1>
               <p className="text-muted-foreground">Join our team and help the community</p>
             </div>
           </div>
 
-          {/* Form */}
           <div className="bg-card border border-border rounded-2xl p-8 space-y-6">
-            
+
             {/* Position */}
             <div>
               <label className="block text-sm font-medium mb-2">Position Applying For *</label>
-              <select
-                value={data.position}
-                onChange={(e) => update("position", e.target.value)}
-                className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-              >
+              <select value={data.position} onChange={e => update("position", e.target.value)}
+                className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all">
                 <option value="">Select position...</option>
-                {positions.map((pos) => (
-                  <option key={pos.value} value={pos.value}>{pos.label}</option>
+                {positions.map(p => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
                 ))}
               </select>
             </div>
@@ -169,139 +153,99 @@ const StaffApplication = () => {
             {/* Real Name */}
             <div>
               <label className="block text-sm font-medium mb-2">Real Name *</label>
-              <input
-                type="text"
-                value={data.realName}
-                onChange={(e) => update("realName", e.target.value)}
-                className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+              <input type="text" value={data.realName} onChange={e => update("realName", e.target.value)}
                 placeholder="Your real name"
-              />
+                className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all" />
             </div>
 
             {/* Age */}
             <div>
-              <label className="block text-sm font-medium mb-2">Age * (16+)</label>
-              <input
-                type="number"
-                min="16"
-                value={data.age}
-                onChange={(e) => update("age", e.target.value)}
-                className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+              <label className="block text-sm font-medium mb-2">Age * <span className="text-muted-foreground font-normal">(16+)</span></label>
+              <input type="number" min="16" value={data.age} onChange={e => update("age", e.target.value)}
                 placeholder="18"
-              />
+                className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all" />
             </div>
 
             {/* Discord */}
             <div>
               <label className="block text-sm font-medium mb-2">Discord ID *</label>
-              <input
-                type="text"
-                value={data.discord}
-                onChange={(e) => update("discord", e.target.value)}
-                className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+              <input type="text" value={data.discord} onChange={e => update("discord", e.target.value)}
                 placeholder="username#0000"
-              />
+                className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all" />
             </div>
 
             {/* Availability */}
             <div>
               <label className="block text-sm font-medium mb-2">Weekly Availability *</label>
-              <textarea
-                value={data.availability}
-                onChange={(e) => update("availability", e.target.value)}
-                rows={2}
-                className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
-                placeholder="How many hours per week can you dedicate? What days/times?"
-              />
+              <textarea value={data.availability} onChange={e => update("availability", e.target.value)}
+                rows={2} className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
+                placeholder="How many hours per week? Which days/times are you available?" />
             </div>
 
             {/* Experience */}
             <div>
-              <label className="block text-sm font-medium mb-2">Staff/Admin Experience *</label>
-              <textarea
-                value={data.experience}
-                onChange={(e) => update("experience", e.target.value)}
-                rows={4}
-                className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
-                placeholder="List previous staff positions, servers, responsibilities, duration..."
-              />
-              <p className="text-xs text-muted-foreground mt-1">{data.experience.length}/50 characters minimum</p>
+              <label className="block text-sm font-medium mb-2">Staff / Admin Experience * <span className="text-muted-foreground font-normal">(min 50 chars)</span></label>
+              <textarea value={data.experience} onChange={e => update("experience", e.target.value)}
+                rows={4} className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
+                placeholder="Previous staff positions, servers, responsibilities, duration..." />
+              <p className={`text-xs mt-1 ${data.experience.length >= 50 ? "text-green-400" : "text-muted-foreground"}`}>
+                {data.experience.length}/50 characters
+              </p>
             </div>
 
             {/* Why Staff */}
             <div>
-              <label className="block text-sm font-medium mb-2">Why Do You Want to Be Staff? *</label>
-              <textarea
-                value={data.whyStaff}
-                onChange={(e) => update("whyStaff", e.target.value)}
-                rows={4}
-                className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
-                placeholder="Explain your motivation, what you bring to the team, why we should choose you..."
-              />
-              <p className="text-xs text-muted-foreground mt-1">{data.whyStaff.length}/50 characters minimum</p>
+              <label className="block text-sm font-medium mb-2">Why Do You Want to Be Staff? * <span className="text-muted-foreground font-normal">(min 50 chars)</span></label>
+              <textarea value={data.whyStaff} onChange={e => update("whyStaff", e.target.value)}
+                rows={4} className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
+                placeholder="Motivation, what you bring to the team, why we should choose you..." />
+              <p className={`text-xs mt-1 ${data.whyStaff.length >= 50 ? "text-green-400" : "text-muted-foreground"}`}>
+                {data.whyStaff.length}/50 characters
+              </p>
             </div>
 
             {/* Scenarios */}
             <div>
-              <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+              <label className="block text-sm font-medium mb-3 flex items-center gap-2">
                 <MessageSquare size={16} /> Scenario Responses *
               </label>
-              <div className="bg-secondary/50 rounded-lg p-4 mb-3 text-sm text-muted-foreground">
-                <p className="mb-2"><strong>Scenario 1:</strong> A player reports being RDM'd but there's no evidence. What do you do?</p>
-                <p className="mb-2"><strong>Scenario 2:</strong> Two gangs are arguing in OOC chat. How do you handle it?</p>
-                <p><strong>Scenario 3:</strong> A friend breaks a rule. How do you respond?</p>
+              <div className="bg-secondary/50 border border-border/50 rounded-lg p-4 mb-3 space-y-2 text-sm text-muted-foreground">
+                <p><span className="text-foreground font-medium">Scenario 1:</span> A player reports being RDM'd but there's no evidence. What do you do?</p>
+                <p><span className="text-foreground font-medium">Scenario 2:</span> Two gangs are arguing in OOC chat. How do you handle it?</p>
+                <p><span className="text-foreground font-medium">Scenario 3:</span> A friend breaks a rule. How do you respond?</p>
               </div>
-              <textarea
-                value={data.scenarios}
-                onChange={(e) => update("scenarios", e.target.value)}
-                rows={5}
-                className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
-                placeholder="Answer all three scenarios..."
-              />
+              <textarea value={data.scenarios} onChange={e => update("scenarios", e.target.value)}
+                rows={5} className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
+                placeholder="Answer all three scenarios clearly..." />
             </div>
 
             {/* Strengths */}
             <div>
               <label className="block text-sm font-medium mb-2">Your Strengths *</label>
-              <textarea
-                value={data.strengths}
-                onChange={(e) => update("strengths", e.target.value)}
-                rows={2}
-                className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
-                placeholder="What makes you a good candidate? Communication, patience, problem-solving..."
-              />
+              <textarea value={data.strengths} onChange={e => update("strengths", e.target.value)}
+                rows={2} className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
+                placeholder="Communication, patience, problem-solving, fairness..." />
             </div>
 
             {/* Weaknesses */}
             <div>
               <label className="block text-sm font-medium mb-2">Your Weaknesses *</label>
-              <textarea
-                value={data.weaknesses}
-                onChange={(e) => update("weaknesses", e.target.value)}
-                rows={2}
-                className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
-                placeholder="Be honest - what areas do you need to improve?"
-              />
+              <textarea value={data.weaknesses} onChange={e => update("weaknesses", e.target.value)}
+                rows={2} className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
+                placeholder="Be honest — what areas do you need to improve?" />
             </div>
 
-            {/* Submit */}
             <div className="pt-4">
-              <button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 text-white font-heading uppercase tracking-wider py-4 rounded-xl transition-all disabled:opacity-70"
-              >
-                {submitting ? (
-                  <><Loader2 className="animate-spin" size={20} /> Submitting...</>
-                ) : (
-                  <><Shield size={20} /> Submit Staff Application</>
-                )}
+              <button onClick={handleSubmit} disabled={submitting}
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 text-white font-heading uppercase tracking-wider py-4 rounded-xl transition-all disabled:opacity-70">
+                {submitting
+                  ? <><Loader2 className="animate-spin" size={20} /> Submitting...</>
+                  : <><Shield size={20} /> Submit Staff Application</>}
               </button>
             </div>
           </div>
         </div>
       </div>
-
       <Footer />
     </div>
   );

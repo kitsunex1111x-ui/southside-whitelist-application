@@ -423,7 +423,13 @@ const OwnerDashboard = () => {
                         {isOpen && (
                           <div className="border-t border-border px-5 pb-5 pt-4 space-y-3 animate-in fade-in duration-150">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <Field label="Position Applying"  value={app.rdm ?? ""} />
+                              <Field label="Position Applying"   value={
+                                app.rdm === "support" ? "Support Staff"
+                                : app.rdm === "trial" ? "Trial Staff"
+                                : app.rdm === "whitelister" ? "Whitelister"
+                                : app.rdm === "administrator" ? "Administrator"
+                                : app.rdm === "headadmin" ? "Head Admin"
+                                : app.rdm ?? ""} />
                               <Field label="Timezone"           value={app.vdm ?? ""} />
                               <Field label="Weekly Availability" value={app.metagaming ?? ""} />
                               <Field label="Staff Experience"   value={app.powergaming ?? ""} />
