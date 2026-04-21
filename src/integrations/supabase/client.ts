@@ -167,3 +167,31 @@ export async function rawDelete(
     return { data: null, error: { message: e?.message ?? "Network error" } };
   }
 }
+
+export async function rawRpc<T = any>(
+  fn: string,
+  params: Record<string, any> = {}
+): RawResult<T> {
+  try {
+    const authHeader = getAuthHeader();
+    const url = `${SUPABASE_URL}/rest/v1/rpc/${fn}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: authHeader,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
+      return { data: null, error: { message: err.message ?? err.hint ?? `HTTP ${res.status}` } };
+    }
+    const data = await res.json();
+    return { data: data as T, error: null };
+  } catch (e: any) {
+    return { data: null, error: { message: e?.message ?? "Network error" } };
+  }
+}

@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { rawSelect, rawInsert, rawDelete, rawUpdate } from "@/integrations/supabase/client";
+import { rawSelect, rawInsert, rawDelete, rawUpdate, rawRpc } from "@/integrations/supabase/client";
 import { Shield, Trash2, Plus, Loader2, UserCog, Clock, RefreshCw,
   CheckCircle, XCircle, UserPlus, UserMinus, FileText, Activity,
   Check, X, MessageSquare, Copy } from "lucide-react";
@@ -142,17 +142,52 @@ const OwnerDashboard = () => {
     if (!did) return toast.error("Enter a Discord ID");
     if (!/^\d{17,19}$/.test(did)) return toast.error("Discord ID must be 17–19 digits");
     setAdding(true);
-    const { data: apps } = await rawSelect<{ user_id: string; discord: string }[]>(
-      "applications", { discord: `eq.${did}`, select: "user_id,discord", limit: "1" });
-    const app = Array.isArray(apps) ? apps[0] : null;
-    if (!app) { toast.error("No application found for that Discord ID."); setAdding(false); return; }
-    const { error } = await rawInsert("user_roles", { user_id: app.user_id, role: newRole });
-    if (error) toast.error(error.message.includes("duplicate") ? "User already has that role." : error.message);
-    else {
-      await rawInsert("admin_logs", { actor_user_id: user!.id, action: "add_role", target_id: app.user_id,
-        details: { actor_name: me(), role: newRole, discord: did } });
-      toast.success(`${newRole} assigned to ${did}`);
-      setNewDiscordId(""); fetchData(true);
+
+    try {
+      // Look up the user in auth.users by their Discord provider_id
+      const { data: found, error: rpcErr } = await rawRpc<{ user_id: string; email: string; discord_name: string }[]>(
+        "get_user_id_by_discord", { p_discord_id: did }
+      );
+
+      if (rpcErr) {
+        toast.error("Lookup failed: " + rpcErr.message);
+        setAdding(false);
+        return;
+      }
+
+      const userRow = Array.isArray(found) ? found[0] : null;
+
+      if (!userRow?.user_id) {
+        toast.error("This Discord ID hasn't signed into the site yet. They need to log in at least once before you can assign a role.", { duration: 6000 });
+        setAdding(false);
+        return;
+      }
+
+      // Check if they already have this role
+      const { data: existing } = await rawSelect<{ id: string }[]>(
+        "user_roles",
+        { user_id: `eq.${userRow.user_id}`, role: `eq.${newRole}`, select: "id" }
+      );
+      if (Array.isArray(existing) && existing.length > 0) {
+        toast.error(`${userRow.discord_name || did} already has the ${newRole} role.`);
+        setAdding(false);
+        return;
+      }
+
+      const { error } = await rawInsert("user_roles", { user_id: userRow.user_id, role: newRole });
+      if (error) {
+        toast.error(error.message.includes("duplicate") ? "User already has that role." : error.message);
+      } else {
+        await rawInsert("admin_logs", {
+          actor_user_id: user!.id, action: "add_role", target_id: userRow.user_id,
+          details: { actor_name: me(), role: newRole, discord: did, discord_name: userRow.discord_name },
+        });
+        toast.success(`✓ ${newRole} role assigned to ${userRow.discord_name || did}`, { duration: 5000 });
+        setNewDiscordId("");
+        fetchData(true);
+      }
+    } catch (e: any) {
+      toast.error("Unexpected error: " + e.message);
     }
     setAdding(false);
   };
