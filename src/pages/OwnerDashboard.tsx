@@ -6,14 +6,14 @@ import Footer from "@/components/Footer";
 import { rawSelect, rawInsert, rawDelete, rawUpdate, rawRpc } from "@/integrations/supabase/client";
 import { Shield, Trash2, Plus, Loader2, UserCog, Clock, RefreshCw,
   CheckCircle, XCircle, UserPlus, UserMinus, FileText, Activity,
-  Check, X, MessageSquare, Copy } from "lucide-react";
+  Check, X, MessageSquare, Copy, Settings, ToggleLeft, ToggleRight } from "lucide-react";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 type Status  = Database["public"]["Enums"]["application_status"];
 type Application = Database["public"]["Tables"]["applications"]["Row"];
-type OwnerTab = "roles" | "staff" | "logs";
+type OwnerTab = "roles" | "staff" | "logs" | "settings";
 
 interface RoleEntry { id: string; user_id: string; role: AppRole; displayName: string; }
 interface LogEntry  { id: string; actor_user_id: string; action: string;
@@ -76,6 +76,9 @@ const OwnerDashboard = () => {
   const [staffFilter, setStaffFilter] = useState<Status | "all">("all");
   const [confirm, setConfirm]     = useState<{ id: string; status: Status } | null>(null);
   const [notesModal, setNotesModal] = useState<{ id: string; notes: string } | null>(null);
+  const [wlEnabled, setWlEnabled]   = useState<boolean>(true);
+  const [wlLoading, setWlLoading]   = useState(false);
+  const [wlConfirm, setWlConfirm]   = useState(false);
 
   const me = () =>
     user!.user_metadata?.full_name || user!.user_metadata?.name ||
@@ -84,6 +87,11 @@ const OwnerDashboard = () => {
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
+      // Load server settings
+      const { data: settingsRaw } = await rawSelect<{ whitelist_enabled: boolean }[]>(
+        "server_settings", { id: "eq.1", select: "whitelist_enabled" });
+      const settingsRow = Array.isArray(settingsRaw) ? settingsRaw[0] : null;
+      if (settingsRow != null) setWlEnabled(settingsRow.whitelist_enabled);
       // Roles
       const { data: rolesRaw } = await rawSelect<{ id: string; user_id: string; role: string; created_at: string }[]>(
         "user_roles", { select: "id,user_id,role,created_at", order: "created_at.desc" });
@@ -217,6 +225,26 @@ const OwnerDashboard = () => {
     finally { setSaving(false); }
   };
 
+  const toggleWhitelist = async () => {
+    setWlLoading(true); setWlConfirm(false);
+    const newVal = !wlEnabled;
+    const { error } = await rawUpdate(
+      "server_settings", { id: "eq.1" },
+      { whitelist_enabled: newVal, updated_at: new Date().toISOString(), updated_by: user!.id }
+    );
+    if (error) {
+      toast.error("Failed to update setting: " + error.message);
+    } else {
+      setWlEnabled(newVal);
+      await rawInsert("admin_logs", {
+        actor_user_id: user!.id, action: "toggle_whitelist",
+        details: { actor_name: me(), whitelist_enabled: newVal }
+      });
+      toast.success(newVal ? "✓ Whitelist applications enabled" : "✓ Whitelist applications disabled — Gang & Staff now open", { duration: 5000 });
+    }
+    setWlLoading(false);
+  };
+
   const saveNotes = async () => {
     if (!notesModal) return;
     setSaving(true);
@@ -237,9 +265,10 @@ const OwnerDashboard = () => {
   };
 
   const TABS: { key: OwnerTab; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { key: "roles",  label: "Roles",  icon: <UserCog size={15} /> },
-    { key: "staff",  label: "Staff Applications", icon: <Shield size={15} />, badge: staffStats.pending },
-    { key: "logs",   label: "Activity", icon: <Clock size={15} /> },
+    { key: "roles",    label: "Roles",             icon: <UserCog size={15} /> },
+    { key: "staff",    label: "Staff Apps",         icon: <Shield size={15} />, badge: staffStats.pending },
+    { key: "logs",     label: "Activity",           icon: <Clock size={15} /> },
+    { key: "settings", label: "Settings",           icon: <Settings size={15} /> },
   ];
 
   return (
@@ -507,10 +536,102 @@ const OwnerDashboard = () => {
             </div>
           )}
 
+          {/* ── SETTINGS tab ─────────────────────────────────────── */}
+          {tab === "settings" && (
+            <div className="space-y-6 max-w-2xl">
+              <h2 className="font-heading text-xl font-semibold uppercase tracking-wide flex items-center gap-2">
+                <Settings size={20} className="text-primary" /> Server Settings
+              </h2>
+
+              {/* Whitelist toggle card */}
+              <div className="bg-card border border-border rounded-xl p-6">
+                <div className="flex items-start justify-between gap-6">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="font-heading text-lg font-semibold uppercase tracking-wide">Whitelist Applications</h3>
+                      <span className={`text-[11px] font-heading uppercase tracking-widest px-2.5 py-1 rounded-full border font-bold ${
+                        wlEnabled
+                          ? "bg-green-500/10 text-green-400 border-green-500/30"
+                          : "bg-red-500/10 text-red-400 border-red-500/30"}`}>
+                        {wlEnabled ? "ENABLED" : "DISABLED"}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {wlEnabled
+                        ? "Users can submit whitelist applications. Gang & Staff apps are locked until accepted."
+                        : "Whitelist is invite-only (interview mode). Gang & Staff applications are open to all users."}
+                    </p>
+                    {!wlEnabled && (
+                      <div className="mt-3 flex items-center gap-2 text-xs text-primary bg-primary/10 border border-primary/20 rounded-lg px-3 py-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse flex-shrink-0" />
+                        Gang &amp; Staff applications are currently unlocked for all whitelisted users
+                      </div>
+                    )}
+                  </div>
+
+                  {/* toggle button */}
+                  <button
+                    onClick={() => setWlConfirm(true)}
+                    disabled={wlLoading}
+                    className={`flex items-center gap-2 px-5 py-3 rounded-xl font-heading text-sm uppercase tracking-wider transition-all disabled:opacity-50 flex-shrink-0 ${
+                      wlEnabled
+                        ? "bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20"
+                        : "bg-green-500/10 text-green-400 border border-green-500/30 hover:bg-green-500/20"}`}>
+                    {wlLoading ? <Loader2 size={16} className="animate-spin" />
+                      : wlEnabled ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                    {wlEnabled ? "Disable Whitelist" : "Enable Whitelist"}
+                  </button>
+                </div>
+
+                {/* visual state diagram */}
+                <div className="mt-6 grid grid-cols-3 gap-2 text-center">
+                  {[
+                    { label: "Whitelist Form", active: wlEnabled,  icon: "📋" },
+                    { label: "Gang Apps",      active: !wlEnabled || false, icon: "👥" },
+                    { label: "Staff Apps",     active: true,        icon: "🛡️" },
+                  ].map(item => (
+                    <div key={item.label} className={`rounded-lg p-3 border transition-all ${
+                      item.active ? "border-green-500/30 bg-green-500/5" : "border-border bg-secondary/50 opacity-50"}`}>
+                      <div className="text-xl mb-1">{item.icon}</div>
+                      <p className="text-xs font-medium">{item.label}</p>
+                      <p className={`text-[10px] font-heading uppercase tracking-wide mt-0.5 ${item.active ? "text-green-400" : "text-muted-foreground"}`}>
+                        {item.active ? "Open" : "Locked"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground">Changes take effect immediately for all users.</p>
+            </div>
+          )}
+
         </div>
       </div>
 
-      {/* confirm modal */}
+      {/* whitelist toggle confirmation */}
+      {wlConfirm && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-md">
+            <h3 className="font-heading text-xl font-semibold uppercase tracking-wide mb-3">
+              {wlEnabled ? "Disable Whitelist Applications?" : "Enable Whitelist Applications?"}
+            </h3>
+            <p className="text-muted-foreground text-sm mb-2">
+              {wlEnabled
+                ? "This will hide the whitelist form for all users. The Apply page will only show Gang & Staff applications. Users won't need to be whitelisted first."
+                : "This will restore the whitelist application form. Users must apply and get accepted before Gang & Staff apps unlock."}
+            </p>
+            <p className="text-xs text-muted-foreground mb-6 italic">Changes apply instantly site-wide.</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setWlConfirm(false)} className="px-4 py-2 rounded-md bg-secondary text-muted-foreground hover:text-foreground font-heading text-sm uppercase">Cancel</button>
+              <button onClick={toggleWhitelist}
+                className={`flex items-center gap-2 px-6 py-2 rounded-md font-heading text-sm uppercase text-white ${wlEnabled ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"}`}>
+                {wlEnabled ? "Yes, Disable" : "Yes, Enable"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {confirm && (
         <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm">
