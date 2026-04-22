@@ -5,7 +5,6 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { rawSelect } from "@/integrations/supabase/client";
 import { Clock, CheckCircle, XCircle, FileText } from "lucide-react";
-import DiscordLogin from "@/components/DiscordLogin";
 
 type Application = {
   id: string;
@@ -94,6 +93,7 @@ const Dashboard = () => {
     user?.email?.split("@")[0] || "Player";
 
   const discordHandle = user?.user_metadata?.name || user?.user_metadata?.user_name || null;
+  const discordId = user?.user_metadata?.provider_id || user?.user_metadata?.sub || null;
   const avatarUrl = user?.user_metadata?.avatar_url;
   const initials = displayName[0]?.toUpperCase() ?? "U";
 
@@ -127,12 +127,12 @@ const Dashboard = () => {
                   )}
                   <span className="text-white/50 text-xs truncate">{user?.email}</span>
                 </div>
-                <div className="mt-3">
-                  <DiscordLogin />
-                </div>
-              </div>
-              <div className="bg-white/20 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap self-start sm:self-auto">
-                {user?.app_metadata?.provider === "discord" ? "Discord Auth" : "Authenticated"}
+                {discordId && (
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <span className="text-white/40 text-xs uppercase tracking-widest font-heading">ID:</span>
+                    <span className="text-white/70 text-xs font-mono">{discordId}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
