@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { rawInsert } from "@/integrations/supabase/client";
+import { rawInsert, rawSelect } from "@/integrations/supabase/client";
 import { ArrowLeft, Check, Loader2, Shield, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,11 +27,11 @@ const initialData: StaffFormData = {
 };
 
 const positions = [
-  { value: "support",   label: "Support Staff — Help players with issues" },
-  { value: "trial",     label: "Trial Staff — On probation, learning the ropes" },
-  { value: "whitelister", label: "Whitelister — Process whitelist applications" },
-  { value: "administrator", label: "Administrator — Full server management" },
-  { value: "headadmin", label: "Head Admin — Lead the staff team" },
+  { value: "support",       label: "Support Staff — Help players with basic issues & questions" },
+  { value: "trial",         label: "Trial Staff — Probation period, learning the role" },
+  { value: "whitelister",   label: "Whitelister — Review & process whitelist applications" },
+  { value: "administrator", label: "Administrator — Solve player reports, manage in-game situations" },
+  { value: "headadmin",     label: "Head Admin — Lead the staff team & oversee all operations" },
 ];
 
 const StaffApplication = () => {
@@ -67,6 +67,28 @@ const StaffApplication = () => {
     if (!user) { toast.error("Please login first"); return; }
     setSubmitting(true);
     try {
+      const { data: prev } = await rawSelect<{ id: string; status: string; updated_at: string }[]>(
+        "applications",
+        { user_id: `eq.${user.id}`, type: "eq.staff", select: "id,status,updated_at", order: "created_at.desc", limit: "1" }
+      );
+      const last = Array.isArray(prev) ? prev[0] : null;
+      if (last) {
+        if (last.status === "accepted") {
+          toast.error("Your staff application was already accepted!"); setSubmitting(false); return;
+        }
+        if (last.status === "pending") {
+          toast.error("You already have a pending staff application."); setSubmitting(false); return;
+        }
+        if (last.status === "rejected") {
+          const elapsed = Date.now() - new Date(last.updated_at).getTime();
+          const cooldownMs = 12 * 60 * 60 * 1000;
+          if (elapsed < cooldownMs) {
+            const rem = Math.ceil((cooldownMs - elapsed) / 3600000);
+            toast.error(`Rejected. Re-apply in ${rem} hour${rem === 1 ? "" : "s"}.`, { duration: 5000 }); setSubmitting(false); return;
+          }
+        }
+      }
+
       const { error } = await rawInsert("applications", {
         user_id:     user.id,
         type:        "staff",

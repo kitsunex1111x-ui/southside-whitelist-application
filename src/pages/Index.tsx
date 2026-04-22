@@ -5,7 +5,6 @@ import Footer from "@/components/Footer";
 import StickyApply from "@/components/StickyApply";
 
 // Lazy load below-fold components for faster initial paint
-const LiveCounters = lazy(() => import("@/components/LiveCounters"));
 const FeaturesGrid = lazy(() => import("@/components/FeaturesGrid"));
 const FoundersSection = lazy(() => import("@/components/FoundersSection"));
 const HowToJoin = lazy(() => import("@/components/HowToJoin"));
@@ -24,7 +23,6 @@ const Index = () => {
       <Navbar />
       <HeroSection />
       <Suspense fallback={<SectionLoader />}>
-        <LiveCounters />
         <FeaturesGrid />
         <FoundersSection />
         <HowToJoin />

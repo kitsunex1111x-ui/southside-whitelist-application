@@ -59,6 +59,7 @@ const AdminDashboard = () => {
   const [expanded, setExpanded]   = useState<string | null>(null);
   const [notesModal, setNotesModal]   = useState<{ id: string; notes: string } | null>(null);
   const [confirm, setConfirm]     = useState<{ id: string; status: Status } | null>(null);
+  const [pendingCounts, setPendingCounts] = useState({ whitelist: 0, gang: 0 });
 
   const fetchApps = useCallback(async () => {
     if (!user || !isAdmin) { setApps([]); setLoading(false); return; }
@@ -73,6 +74,15 @@ const AdminDashboard = () => {
     const { data, error } = await rawSelect<Application[]>("applications", params);
     if (error) { toast.error("Failed to load applications."); setApps([]); }
     else setApps(data ?? []);
+    // Refresh pending counts for both tabs
+    const [wl, g] = await Promise.all([
+      rawSelect<{ id: string }[]>("applications", { type: "eq.whitelist", status: "eq.pending", select: "id" }),
+      rawSelect<{ id: string }[]>("applications", { type: "eq.gang", status: "eq.pending", select: "id" }),
+    ]);
+    setPendingCounts({
+      whitelist: Array.isArray(wl.data) ? wl.data.length : 0,
+      gang: Array.isArray(g.data) ? g.data.length : 0,
+    });
     setLoading(false);
   }, [user, isAdmin, typeTab, statusFilter]);
 
@@ -162,15 +172,20 @@ const AdminDashboard = () => {
           {/* type tabs */}
           <div className="flex gap-2 mb-6 p-1 bg-secondary rounded-xl w-fit">
             {([
-              { key: "whitelist", label: "Whitelist", icon: <FileText size={15} /> },
-              { key: "gang",      label: "Gang",      icon: <Users size={15} /> },
+              { key: "whitelist", label: "Whitelist", icon: <FileText size={15} />, count: pendingCounts.whitelist },
+              { key: "gang",      label: "Gang",      icon: <Users size={15} />,    count: pendingCounts.gang },
             ] as const).map(t => (
               <button key={t.key} onClick={() => { setTypeTab(t.key); setStatusFilter("all"); setExpanded(null); }}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-heading text-sm uppercase tracking-wider transition-all ${
+                className={`relative flex items-center gap-2 px-5 py-2.5 rounded-lg font-heading text-sm uppercase tracking-wider transition-all ${
                   typeTab === t.key
                     ? "bg-card text-foreground shadow-sm border border-border"
                     : "text-muted-foreground hover:text-foreground"}`}>
                 {t.icon} {t.label}
+                {t.count > 0 && (
+                  <span className="absolute -top-2 -right-2 min-w-[20px] h-5 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                    {t.count}
+                  </span>
+                )}
               </button>
             ))}
           </div>

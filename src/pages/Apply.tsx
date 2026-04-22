@@ -178,18 +178,35 @@ const Apply = () => {
     setSubmitting(true);
 
     try {
-      // Check for existing pending/accepted application
-      const { data: existing } = await rawSelect<{ id: string; status: string }[]>(
+      // Fetch most recent whitelist application regardless of status
+      const { data: existing } = await rawSelect<{ id: string; status: string; updated_at: string }[]>(
         "applications",
-        { user_id: `eq.${user.id}`, status: `in.(pending,accepted)`, select: "id,status", limit: "1" }
+        { user_id: `eq.${user.id}`, type: "eq.whitelist", select: "id,status,updated_at", order: "created_at.desc", limit: "1" }
       );
-      const found = Array.isArray(existing) ? existing[0] : null;
-      if (found) {
-        toast.error(found.status === "accepted"
-          ? "Your application has already been accepted!"
-          : "You already have a pending application. Check your dashboard.");
-        setSubmitting(false);
-        return;
+      const last = Array.isArray(existing) ? existing[0] : null;
+
+      if (last) {
+        if (last.status === "accepted") {
+          toast.error("Your whitelist application was already accepted — you're already in!");
+          setSubmitting(false);
+          return;
+        }
+        if (last.status === "pending") {
+          toast.error("You already have a pending application. Check your Dashboard.");
+          setSubmitting(false);
+          return;
+        }
+        if (last.status === "rejected") {
+          const rejectedAt = new Date(last.updated_at).getTime();
+          const cooldownMs = 12 * 60 * 60 * 1000; // 12 hours
+          const elapsed = Date.now() - rejectedAt;
+          if (elapsed < cooldownMs) {
+            const remaining = Math.ceil((cooldownMs - elapsed) / 3600000);
+            toast.error(`Your application was rejected. You can re-apply in ${remaining} hour${remaining === 1 ? "" : "s"}.`, { duration: 6000 });
+            setSubmitting(false);
+            return;
+          }
+        }
       }
 
       const { error } = await rawInsert("applications", {

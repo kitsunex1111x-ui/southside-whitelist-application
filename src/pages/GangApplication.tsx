@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { rawInsert } from "@/integrations/supabase/client";
+import { rawInsert, rawSelect } from "@/integrations/supabase/client";
 import { ArrowLeft, Check, Loader2, Users, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
@@ -54,6 +54,29 @@ const GangApplication = () => {
     if (!user) { toast.error("Please login first"); return; }
     setSubmitting(true);
     try {
+      // Check for existing gang application
+      const { data: prev } = await rawSelect<{ id: string; status: string; updated_at: string }[]>(
+        "applications",
+        { user_id: `eq.${user.id}`, type: "eq.gang", select: "id,status,updated_at", order: "created_at.desc", limit: "1" }
+      );
+      const last = Array.isArray(prev) ? prev[0] : null;
+      if (last) {
+        if (last.status === "accepted") {
+          toast.error("Your gang application was already accepted!"); setSubmitting(false); return;
+        }
+        if (last.status === "pending") {
+          toast.error("You already have a pending gang application."); setSubmitting(false); return;
+        }
+        if (last.status === "rejected") {
+          const elapsed = Date.now() - new Date(last.updated_at).getTime();
+          const cooldownMs = 12 * 60 * 60 * 1000;
+          if (elapsed < cooldownMs) {
+            const rem = Math.ceil((cooldownMs - elapsed) / 3600000);
+            toast.error(`Rejected. Re-apply in ${rem} hour${rem === 1 ? "" : "s"}.`, { duration: 5000 }); setSubmitting(false); return;
+          }
+        }
+      }
+
       const { error } = await rawInsert("applications", {
         user_id:    user.id,
         type:       "gang",

@@ -459,9 +459,9 @@ const OwnerDashboard = () => {
                                 : app.rdm === "administrator" ? "Administrator"
                                 : app.rdm === "headadmin" ? "Head Admin"
                                 : app.rdm ?? ""} />
-                              <Field label="Timezone"           value={app.vdm ?? ""} />
                               <Field label="Weekly Availability" value={app.metagaming ?? ""} />
                               <Field label="Staff Experience"   value={app.powergaming ?? ""} />
+                              <Field label="Age"                value={String(app.age ?? "—")} />
                             </div>
                             <Field label="Strengths"         value={app.char_name ?? ""} />
                             <Field label="Why They Want Staff" value={app.backstory ?? ""} />

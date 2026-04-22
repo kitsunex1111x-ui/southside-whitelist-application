@@ -12,6 +12,7 @@ import GangApplication from "./pages/GangApplication";
 import StaffApplication from "./pages/StaffApplication";
 import Auth from "./pages/Auth";
 import AuthCallback from "./pages/AuthCallback";
+import DiscordCallback from "./pages/DiscordCallback";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import OwnerDashboard from "./pages/OwnerDashboard";
@@ -103,6 +104,7 @@ const App = () => {
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/auth/callback" element={<AuthCallback />} />
+                  <Route path="/auth/discord/callback" element={<DiscordCallback />} />
                   <Route path="/apply" element={<ProtectedRoute><ApplicationsHub /></ProtectedRoute>} />
                   <Route path="/apply/whitelist" element={<ProtectedRoute><Apply /></ProtectedRoute>} />
                   <Route path="/apply/gang" element={<ProtectedRoute><GangApplication /></ProtectedRoute>} />
