@@ -14,32 +14,36 @@ type WLStatus = "loading" | "none" | "pending" | "accepted" | "rejected";
 
 const ApplicationsHub = () => {
   const { user } = useAuth();
-  const [wlStatus,   setWlStatus]   = useState<WLStatus>("loading");
-  const [wlEnabled,  setWlEnabled]  = useState<boolean | null>(null); // null = loading
+  const [wlStatus,  setWlStatus]  = useState<WLStatus>("loading");
+  const [wlEnabled, setWlEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // Load both in parallel
-    const loadSetting = rawSelect<{ whitelist_enabled: boolean }[]>(
+    // Load setting — no extra params that could confuse PostgREST
+    rawSelect<{ whitelist_enabled: boolean }[]>(
       "server_settings", { id: "eq.1", select: "whitelist_enabled" }
     ).then(({ data }) => {
       const row = Array.isArray(data) ? data[0] : null;
       setWlEnabled(row?.whitelist_enabled ?? true);
-    });
+    }).catch(() => setWlEnabled(true));
 
-    const loadStatus = user?.id
-      ? rawSelect<{ status: string }[]>(
-          "applications",
-          { user_id: `eq.${user.id}`, select: "status", order: "created_at.desc", limit: "1" }
-        ).then(({ data }) => {
-          const latest = Array.isArray(data) ? data[0] : null;
-          setWlStatus((latest?.status as WLStatus) ?? "none");
-        })
-      : Promise.resolve(setWlStatus("none"));
-
-    Promise.all([loadSetting, loadStatus]);
+    // Load WHITELIST-type application status only
+    if (user?.id) {
+      rawSelect<{ status: string }[]>("applications", {
+        user_id: `eq.${user.id}`,
+        type:    "eq.whitelist",
+        select:  "status",
+        order:   "created_at.desc",
+        limit:   "1",
+      }).then(({ data }) => {
+        const latest = Array.isArray(data) ? data[0] : null;
+        setWlStatus((latest?.status as WLStatus) ?? "none");
+      }).catch(() => setWlStatus("none"));
+    } else {
+      setWlStatus("none");
+    }
   }, [user?.id]);
 
-  // still loading
+  // Loading state
   if (wlEnabled === null || wlStatus === "loading") {
     return (
       <div className="min-h-screen bg-background">
@@ -52,9 +56,7 @@ const ApplicationsHub = () => {
     );
   }
 
-  /* ──────────────────────────────────────────────────────
-     WHITELIST DISABLED → show Gang + Staff directly
-  ────────────────────────────────────────────────────── */
+  /* ── WHITELIST DISABLED → Gang + Staff open directly ── */
   if (!wlEnabled) {
     return (
       <div className="min-h-screen bg-background">
@@ -67,44 +69,24 @@ const ApplicationsHub = () => {
               </h1>
               <p className="text-muted-foreground text-lg">Select the application that fits your goals.</p>
             </div>
-
-            {/* Interview-only notice */}
             <div className="flex items-center justify-center gap-3 bg-primary/10 border border-primary/30 rounded-xl px-6 py-4 mb-10 max-w-xl mx-auto">
               <MessageSquare className="w-5 h-5 text-primary flex-shrink-0" />
               <span className="text-primary/90 font-heading uppercase tracking-wide text-sm">
                 Whitelist is currently invite-only — join our Discord to get interviewed
               </span>
             </div>
-
             <div className="grid md:grid-cols-2 gap-8 mb-10">
-              <HubCard
-                title="Gang Application"
+              <HubCard title="Gang Application"
                 description="Create or join an official gang faction. Build your empire, control territory, and rise through the ranks."
-                icon={<Users className="w-8 h-8" />}
-                color="from-red-600 to-red-800"
-                requirements={[
-                  "Unique gang concept & backstory",
-                  "Active Discord for communication",
-                  "Understanding of gang RP rules",
-                ]}
-                to="/apply/gang"
-                locked={false}
-              />
-              <HubCard
-                title="Staff Application"
+                icon={<Users className="w-8 h-8" />} color="from-red-600 to-red-800"
+                requirements={["Unique gang concept & backstory","Active Discord for communication","Understanding of gang RP rules"]}
+                to="/apply/gang" locked={false} />
+              <HubCard title="Staff Application"
                 description="Join our team as support staff, whitelister, or administrator. Help maintain the server."
-                icon={<Shield className="w-8 h-8" />}
-                color="from-blue-600 to-blue-800"
-                requirements={[
-                  "Mature & professional attitude",
-                  "Available time commitment",
-                  "Good communication skills",
-                ]}
-                to="/apply/staff"
-                locked={false}
-              />
+                icon={<Shield className="w-8 h-8" />} color="from-blue-600 to-blue-800"
+                requirements={["Mature & professional attitude","Available time commitment","Good communication skills"]}
+                to="/apply/staff" locked={false} />
             </div>
-
             <div className="text-center">
               <Link to="/dashboard" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm">
                 <ArrowRight className="w-4 h-4 rotate-180" /> Back to Dashboard
@@ -117,9 +99,7 @@ const ApplicationsHub = () => {
     );
   }
 
-  /* ──────────────────────────────────────────────────────
-     WHITELIST ENABLED + ACCEPTED → unlock Gang + Staff
-  ────────────────────────────────────────────────────── */
+  /* ── WHITELIST ENABLED + ACCEPTED → Gang + Staff unlocked ── */
   if (wlStatus === "accepted") {
     return (
       <div className="min-h-screen bg-background">
@@ -132,27 +112,24 @@ const ApplicationsHub = () => {
               </h1>
               <p className="text-muted-foreground text-lg">You're whitelisted — pick your next adventure.</p>
             </div>
-
             <div className="flex items-center justify-center gap-3 bg-green-500/10 border border-green-500/30 rounded-xl px-6 py-4 mb-10 max-w-lg mx-auto">
               <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
               <span className="text-green-300 font-heading uppercase tracking-wide text-sm">
                 Whitelist Accepted — Gang &amp; Staff applications unlocked
               </span>
             </div>
-
             <div className="grid md:grid-cols-2 gap-8 mb-10">
               <HubCard title="Gang Application"
                 description="Create or join an official gang faction. Build your empire, control territory, and rise through the ranks."
                 icon={<Users className="w-8 h-8" />} color="from-red-600 to-red-800"
-                requirements={["Unique gang concept & backstory", "Active Discord for communication", "Understanding of gang RP rules"]}
+                requirements={["Unique gang concept & backstory","Active Discord for communication","Understanding of gang RP rules"]}
                 to="/apply/gang" locked={false} />
               <HubCard title="Staff Application"
                 description="Join our team as support staff, whitelister, or administrator. Help maintain the server."
                 icon={<Shield className="w-8 h-8" />} color="from-blue-600 to-blue-800"
-                requirements={["Mature & professional attitude", "Available time commitment", "Good communication skills"]}
+                requirements={["Mature & professional attitude","Available time commitment","Good communication skills"]}
                 to="/apply/staff" locked={false} />
             </div>
-
             <div className="text-center">
               <Link to="/dashboard" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm">
                 <ArrowRight className="w-4 h-4 rotate-180" /> Back to Dashboard
@@ -165,9 +142,7 @@ const ApplicationsHub = () => {
     );
   }
 
-  /* ──────────────────────────────────────────────────────
-     WHITELIST ENABLED + NOT ACCEPTED → show gate
-  ────────────────────────────────────────────────────── */
+  /* ── WHITELIST ENABLED + NOT ACCEPTED → show gate ── */
   const banner = {
     pending:  { icon: <Clock className="w-5 h-5 text-yellow-400 flex-shrink-0" />,
       text: "Your whitelist application is under review — we'll notify you soon.",
@@ -206,10 +181,9 @@ const ApplicationsHub = () => {
             <HubCard title="Whitelist Application"
               description="Apply to join SouthsideRP. Write your character, prove you know the rules, and get accepted to unlock everything."
               icon={<FileText className="w-8 h-8" />} color="from-primary to-red-800"
-              requirements={["Detailed character backstory", "Understanding of RP rules (RDM, VDM)", "Valid character name & age", "Active Discord account"]}
+              requirements={["Detailed character backstory","Understanding of RP rules (RDM, VDM)","Valid character name & age","Active Discord account"]}
               to="/apply/whitelist" locked={wlStatus === "pending"}
               lockedLabel="Application Under Review" featured />
-
             <div>
               <div className="flex items-center gap-3 mb-5">
                 <div className="flex-1 h-px bg-border" />
@@ -241,13 +215,12 @@ const ApplicationsHub = () => {
   );
 };
 
-/* ── HubCard ─────────────────────────────────────────── */
+/* ── HubCard ── */
 interface HubCardProps {
   title: string; description: string; icon: React.ReactNode;
   color: string; requirements: string[]; to: string;
   locked: boolean; lockedLabel?: string; featured?: boolean;
 }
-
 const HubCard = ({ title, description, icon, color, requirements, to, locked, lockedLabel, featured }: HubCardProps) => {
   const inner = (
     <div className={`group relative bg-card border rounded-2xl overflow-hidden transition-all duration-300

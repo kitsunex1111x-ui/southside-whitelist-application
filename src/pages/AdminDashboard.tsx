@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { rawSelect, rawInsert, rawUpdate } from "@/integrations/supabase/client";
+import { rawSelect, rawUpdate, rawInsert, rawDelete } from "@/integrations/supabase/client";
 import { Check, X, MessageSquare, Loader2, Copy, RefreshCw, FileText, Users } from "lucide-react";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
@@ -116,6 +116,9 @@ const AdminDashboard = () => {
           "user_roles", { user_id: `eq.${app.user_id}`, role: "eq.accepted", select: "role" });
         if (!Array.isArray(ex) || ex.length === 0)
           await rawInsert("user_roles", { user_id: app.user_id, role: "accepted" });
+      } else if (status === "rejected" && app?.user_id) {
+        // Remove the accepted role when rejected
+        await rawDelete("user_roles", { user_id: `eq.${app.user_id}`, role: "eq.accepted" });
       }
       await rawInsert("admin_logs", {
         actor_user_id: user!.id,
