@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { rawSelect, rawInsert, rawDelete, rawUpdate, rawRpc } from "@/integrations/supabase/client";
+import { rawSelect, rawInsert, rawInsertWithAuth, rawDelete, rawUpdate, rawRpc } from "@/integrations/supabase/client";
 import { Shield, Trash2, Plus, Loader2, UserCog, Clock, RefreshCw,
   CheckCircle, XCircle, UserPlus, UserMinus, FileText, Activity,
   Check, X, MessageSquare, Copy, Settings, ToggleLeft, ToggleRight } from "lucide-react";
@@ -182,9 +182,14 @@ const OwnerDashboard = () => {
         return;
       }
 
-      const { error } = await rawInsert("user_roles", { user_id: userRow.user_id, role: newRole });
-      if (error) {
-        toast.error(error.message.includes("duplicate") ? "User already has that role." : error.message);
+      const { data: assignResult, error: assignErr } = await rawRpc(
+        "assign_user_role",
+        { p_target_user_id: userRow.user_id, p_role: newRole }
+      );
+      const assignError = assignErr || ((assignResult as any)?.error ? { message: (assignResult as any).error } : null);
+
+      if (assignError) {
+        toast.error(assignError.message?.includes("already") ? `User already has the ${newRole} role.` : assignError.message);
       } else {
         await rawInsert("admin_logs", {
           actor_user_id: user!.id, action: "add_role", target_id: userRow.user_id,
@@ -202,12 +207,16 @@ const OwnerDashboard = () => {
 
   const removeRole = async (r: RoleEntry) => {
     if (r.user_id === user!.id && r.role === "owner") return toast.error("Can't remove your own owner role.");
-    const { error } = await rawDelete("user_roles", { id: `eq.${r.id}` });
-    if (!error) {
+    const { data: removeResult, error: removeErr } = await rawRpc(
+      "remove_user_role",
+      { p_target_user_id: r.user_id, p_role: r.role }
+    );
+    const removeError = removeErr || ((removeResult as any)?.error ? { message: (removeResult as any).error } : null);
+    if (!removeError) {
       await rawInsert("admin_logs", { actor_user_id: user!.id, action: "remove_role", target_id: r.user_id,
         details: { actor_name: me(), role: r.role } });
       toast.success("Role removed."); fetchData(true);
-    } else toast.error(error.message);
+    } else toast.error(removeError.message);
   };
 
   /* ── staff app mutations ─────────────────────────────────────── */

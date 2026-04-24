@@ -259,7 +259,7 @@ const AdminDashboard = () => {
                           </button>
                           <button onClick={() => setConfirm({ id: app.id, status: "rejected" })}
                             disabled={saving || app.status === "rejected"}
-                            className="p-2 rounded-md bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all disabled:opacity-30" title="Reject">
+                            className="p-2 rounded-md bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all disabled:opacity-30" title={app.status === "accepted" ? "Revoke & Reject" : "Reject"}>
                             <X size={16} />
                           </button>
                           <button onClick={() => setNotesModal({ id: app.id, notes: app.admin_notes ?? "" })}
@@ -317,20 +317,35 @@ const AdminDashboard = () => {
       {confirm && (
         <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm">
-            <h3 className="font-heading text-xl font-semibold uppercase tracking-wide mb-3">
-              Confirm {confirm.status === "accepted" ? "Accept" : "Reject"}
-            </h3>
-            <p className="text-muted-foreground text-sm mb-6">
-              Are you sure you want to <span className={confirm.status === "accepted" ? "text-green-400 font-semibold" : "text-red-400 font-semibold"}>{confirm.status}</span> this application?
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button onClick={() => setConfirm(null)} className="px-4 py-2 rounded-md bg-secondary text-muted-foreground hover:text-foreground font-heading text-sm uppercase">Cancel</button>
-              <button onClick={() => updateStatus(confirm.id, confirm.status)} disabled={saving}
-                className={`flex items-center gap-2 px-6 py-2 rounded-md font-heading text-sm uppercase disabled:opacity-70 text-white ${confirm.status === "accepted" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}`}>
-                {saving && <Loader2 className="animate-spin" size={16} />}
-                {confirm.status === "accepted" ? "Accept" : "Reject"}
-              </button>
-            </div>
+            {(() => {
+              const currentApp = apps.find(a => a.id === confirm.id);
+              const isRevoke = confirm.status === "rejected" && currentApp?.status === "accepted";
+              return (
+                <>
+                  <h3 className="font-heading text-xl font-semibold uppercase tracking-wide mb-3">
+                    {isRevoke ? "Revoke & Reject" : confirm.status === "accepted" ? "Confirm Accept" : "Confirm Reject"}
+                  </h3>
+                  <p className="text-muted-foreground text-sm mb-2">
+                    Are you sure you want to <span className={confirm.status === "accepted" ? "text-green-400 font-semibold" : "text-red-400 font-semibold"}>
+                      {confirm.status}
+                    </span> this application?
+                  </p>
+                  {isRevoke && (
+                    <p className="text-xs text-red-400/80 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 mb-4">
+                      ⚠️ This will remove the player's whitelisted role and apply a 12-hour re-apply cooldown.
+                    </p>
+                  )}
+                  <div className="flex gap-3 justify-end mt-4">
+                    <button onClick={() => setConfirm(null)} className="px-4 py-2 rounded-md bg-secondary text-muted-foreground hover:text-foreground font-heading text-sm uppercase">Cancel</button>
+                    <button onClick={() => updateStatus(confirm.id, confirm.status)} disabled={saving}
+                      className={`flex items-center gap-2 px-6 py-2 rounded-md font-heading text-sm uppercase disabled:opacity-70 text-white ${confirm.status === "accepted" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}`}>
+                      {saving && <Loader2 className="animate-spin" size={16} />}
+                      {isRevoke ? "Revoke Access" : confirm.status === "accepted" ? "Accept" : "Reject"}
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
