@@ -7,7 +7,7 @@ import {
   ReactNode,
 } from "react";
 import { Session, User } from "@supabase/supabase-js";
-import { supabase, rawSelect, rawInsert } from "@/integrations/supabase/client";
+import { supabase, rawSelect, rawRpc } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -42,7 +42,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const userRoles: AppRole[] = roleData.map((r) => r.role as AppRole);
 
       if (userRoles.length === 0) {
-        await rawInsert("user_roles", { user_id: userId, role: "user" });
+        // Use SECURITY DEFINER RPC — rawInsert fails RLS for regular users
+        await rawRpc("ensure_default_role");
         userRoles.push("user" as AppRole);
       }
 

@@ -229,8 +229,11 @@ const Apply = () => {
         toast.success("Application submitted successfully!");
         return;
       }
-      if ((error as any).code === "23505") {
-        toast.error("You already have an application. Check your dashboard.");
+      // Check for duplicate/unique violation (code 23505 or 409 status)
+      const errCode = (error as any).code;
+      const errMsg = error.message?.toLowerCase() || "";
+      if (errCode === "23505" || errCode === "409" || errMsg.includes("conflict") || errMsg.includes("duplicate")) {
+        toast.error("You already have a pending application. Check your Dashboard.");
         return;
       }
       toast.error("Failed to submit: " + error.message);

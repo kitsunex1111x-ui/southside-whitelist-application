@@ -1,726 +1,679 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Southside RP - Loading</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SouthsideRP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;600;700&family=Inter:wght@300;400&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --red:hsl(0,100%,50%);
+  --red-dark:hsl(0,100%,28%);
+  --red-glow:hsl(0,100%,50%);
+}
 
-        body {
-            background: linear-gradient(180deg, #050505 0%, #0a0a0a 30%, #111 70%, #0d0d0d 100%);
-            color: #fff;
-            font-family: 'Impact', 'Arial Black', sans-serif;
-            overflow: hidden;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            position: relative;
-        }
+html,body{width:100%;height:100%;overflow:hidden;background:#000;}
 
-        /* Video Background */
-        .video-background {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
-            overflow: hidden;
-        }
+body{
+  font-family:'Oswald',sans-serif;
+  color:#fff;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+  cursor:default;
+  user-select:none;
+}
 
-        .video-background video {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            min-width: 100%;
-            min-height: 100%;
-            width: auto;
-            height: auto;
-            transform: translate(-50%, -50%);
-            object-fit: cover;
-            filter: brightness(0.5);
-        }
+/* ═══════════════════════════════════════
+   BACKGROUND LAYERS
+══════════════════════════════════════════ */
 
-        .video-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: 
-                radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.4) 70%, rgba(0,0,0,0.8) 100%),
-                linear-gradient(180deg, rgba(10,10,10,0.3) 0%, transparent 30%, transparent 70%, rgba(10,10,10,0.5) 100%);
-            z-index: 1;
-        }
+/* Video bg */
+#bg-video{
+  position:fixed;inset:0;width:100%;height:100%;
+  object-fit:cover;z-index:0;
+  filter:brightness(.35) saturate(.6);
+  opacity:0;transition:opacity 2s ease;
+}
+#bg-video.visible{opacity:1;}
 
-        /* Cinematic rain effect */
-        .rain-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 2;
-            overflow: hidden;
-        }
+/* Fallback gradient bg */
+.bg-fallback{
+  position:fixed;inset:0;z-index:0;
+  background:
+    radial-gradient(ellipse 100% 80% at 50% 0%, hsl(0,60%,8%) 0%, #000 70%),
+    radial-gradient(ellipse 60% 40% at 20% 80%, hsl(0,40%,5%) 0%, transparent 70%);
+}
 
-        .rain-drop {
-            position: absolute;
-            width: 1px;
-            height: 60px;
-            background: linear-gradient(to bottom, transparent, rgba(200,200,255,0.4), transparent);
-            animation: rainFall linear infinite;
-            opacity: 0.3;
-        }
+/* Grid overlay */
+.bg-grid{
+  position:fixed;inset:0;z-index:1;
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size:80px 80px;
+  mask-image:radial-gradient(ellipse 80% 80% at 50% 50%, black 20%, transparent 80%);
+}
 
-        @keyframes rainFall {
-            0% { transform: translateY(-100px) translateX(0); }
-            100% { transform: translateY(100vh) translateX(-20px); }
-        }
+/* Vignette */
+.vignette{
+  position:fixed;inset:0;z-index:2;pointer-events:none;
+  background:radial-gradient(ellipse 100% 100% at 50% 50%,
+    transparent 30%, rgba(0,0,0,.6) 70%, rgba(0,0,0,.95) 100%);
+}
 
-        /* Lightning flash */
-        .lightning {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(255,255,255,0.1);
-            opacity: 0;
-            pointer-events: none;
-            z-index: 3;
-            animation: lightning 8s infinite;
-        }
+/* Bottom fog / city fade */
+.city-fade{
+  position:fixed;bottom:0;left:0;right:0;height:45%;z-index:3;pointer-events:none;
+  background:linear-gradient(to top, #000 0%, rgba(0,0,0,.7) 40%, transparent 100%);
+}
 
-        @keyframes lightning {
-            0%, 90%, 92%, 100% { opacity: 0; }
-            91% { opacity: 0.3; }
-            91.5% { opacity: 0; }
-            92.5% { opacity: 0.2; }
-        }
+/* Scanlines */
+.scanlines{
+  position:fixed;inset:0;z-index:95;pointer-events:none;
+  background:repeating-linear-gradient(
+    0deg,
+    transparent 0px, transparent 2px,
+    rgba(0,0,0,.08) 2px, rgba(0,0,0,.08) 4px
+  );
+}
 
-        /* City skyline silhouette */
-        .city-skyline {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 40%;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" preserveAspectRatio="none"><path fill="%23050505" d="M0,400 L0,300 L40,280 L80,290 L120,250 L160,260 L200,220 L240,240 L280,200 L320,180 L360,220 L400,190 L440,210 L480,170 L520,180 L560,150 L600,160 L640,140 L680,155 L720,130 L760,145 L800,120 L840,135 L880,110 L920,125 L960,100 L1000,115 L1040,90 L1080,105 L1120,80 L1160,95 L1200,70 L1200,400 Z"/></svg>');
-            background-size: cover;
-            background-repeat: no-repeat;
-            background-position: bottom;
-            pointer-events: none;
-            z-index: 5;
-            opacity: 0.8;
-        }
+/* Red ambient glow */
+.ambient{
+  position:fixed;z-index:1;pointer-events:none;
+  border-radius:50%;filter:blur(80px);
+}
+.ambient-left{
+  width:500px;height:500px;
+  left:-150px;bottom:-100px;
+  background:radial-gradient(circle, hsl(0,100%,25%,.25) 0%, transparent 70%);
+  animation:ambientPulse 6s ease-in-out infinite;
+}
+.ambient-right{
+  width:400px;height:400px;
+  right:-100px;top:10%;
+  background:radial-gradient(circle, hsl(0,100%,20%,.15) 0%, transparent 70%);
+  animation:ambientPulse 8s ease-in-out infinite 2s;
+}
+@keyframes ambientPulse{
+  0%,100%{opacity:.7;transform:scale(1);}
+  50%{opacity:1;transform:scale(1.12);}
+}
 
-        /* Neon glow effects */
-        .neon-glow {
-            position: fixed;
-            bottom: 30%;
-            left: 10%;
-            width: 200px;
-            height: 100px;
-            background: radial-gradient(ellipse, rgba(220,38,38,0.3) 0%, transparent 70%);
-            filter: blur(40px);
-            animation: neonPulse 4s ease-in-out infinite;
-            pointer-events: none;
-            z-index: 4;
-        }
+/* Floating embers */
+.embers{position:fixed;inset:0;z-index:2;pointer-events:none;overflow:hidden;}
+.ember{
+  position:absolute;border-radius:50%;
+  background:var(--red);
+  animation:emberFloat linear infinite;
+  opacity:0;
+}
+@keyframes emberFloat{
+  0%{opacity:0;transform:translateY(0) scale(1);}
+  10%{opacity:.8;}
+  90%{opacity:.3;}
+  100%{opacity:0;transform:translateY(-100vh) scale(.3);}
+}
 
-        .neon-glow-2 {
-            position: fixed;
-            bottom: 25%;
-            right: 15%;
-            width: 150px;
-            height: 80px;
-            background: radial-gradient(ellipse, rgba(220,38,38,0.2) 0%, transparent 70%);
-            filter: blur(30px);
-            animation: neonPulse 3s ease-in-out infinite 1s;
-            pointer-events: none;
-            z-index: 4;
-        }
+/* ═══════════════════════════════════════
+   INTRO CINEMATIC — full black screen
+══════════════════════════════════════════ */
+#intro{
+  position:fixed;inset:0;z-index:500;
+  background:#000;
+  display:flex;align-items:center;justify-content:center;
+  transition:opacity 1.2s ease;
+}
+#intro.fade-out{opacity:0;pointer-events:none;}
+.intro-text{
+  font-family:'Oswald',sans-serif;
+  font-size:clamp(.85rem,1.5vw,1rem);
+  letter-spacing:.5em;
+  text-transform:uppercase;
+  color:#333;
+  opacity:0;
+  animation:introTextIn .8s ease forwards;
+}
+@keyframes introTextIn{
+  from{opacity:0;letter-spacing:1.2em;}
+  to{opacity:1;letter-spacing:.5em;}
+}
 
-        @keyframes neonPulse {
-            0%, 100% { opacity: 0.5; transform: scale(1); }
-            50% { opacity: 1; transform: scale(1.1); }
-        }
+/* ═══════════════════════════════════════
+   MAIN CONTENT
+══════════════════════════════════════════ */
+#main{
+  position:relative;z-index:10;
+  display:flex;flex-direction:column;align-items:center;
+  text-align:center;padding:0 2rem;
+  opacity:0;
+}
+#main.visible{opacity:1;}
 
-        /* Fog/Mist effect */
-        .fog {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 200%;
-            height: 50%;
-            background: linear-gradient(to top, rgba(10,10,10,0.8) 0%, transparent 100%);
-            animation: fogMove 20s linear infinite;
-            pointer-events: none;
-            z-index: 6;
-        }
+/* ── Logo ── */
+.logo-wrap{
+  position:relative;margin-bottom:2.5rem;
+  opacity:0;transform:scale(.6) translateY(20px);
+  transition:opacity 1s ease, transform 1s cubic-bezier(.2,.8,.3,1);
+}
+.logo-wrap.in{opacity:1;transform:scale(1) translateY(0);}
 
-        @keyframes fogMove {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
-        }
+/* SVG logo ring */
+.logo-ring-svg{
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  animation:ringRotate 20s linear infinite;
+  pointer-events:none;
+}
+@keyframes ringRotate{from{transform:translate(-50%,-50%) rotate(0deg);}to{transform:translate(-50%,-50%) rotate(360deg);}}
 
-        /* Wet street reflection effect */
-        .reflection {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 15%;
-            background: linear-gradient(to top, rgba(220,38,38,0.1) 0%, transparent 100%);
-            filter: blur(2px);
-            animation: reflectionShimmer 3s ease-in-out infinite;
-            pointer-events: none;
-            z-index: 5;
-        }
+.logo-glow{
+  position:absolute;inset:-30px;border-radius:50%;
+  background:radial-gradient(circle, hsl(0,100%,40%,.35) 0%, transparent 70%);
+  animation:logoGlowPulse 3s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes logoGlowPulse{
+  0%,100%{opacity:.7;transform:scale(1);}
+  50%{opacity:1;transform:scale(1.15);}
+}
 
-        @keyframes reflectionShimmer {
-            0%, 100% { opacity: 0.3; }
-            50% { opacity: 0.6; }
-        }
+/* The SVG "SS" badge logo */
+.logo-badge{
+  position:relative;z-index:2;
+  width:140px;height:140px;
+  filter:drop-shadow(0 0 20px hsl(0,100%,50%,.7));
+  animation:badgePulse 4s ease-in-out infinite;
+}
+@keyframes badgePulse{
+  0%,100%{filter:drop-shadow(0 0 20px hsl(0,100%,50%,.7));}
+  50%{filter:drop-shadow(0 0 45px hsl(0,100%,50%,1)) drop-shadow(0 0 80px hsl(0,100%,40%,.5));}
+}
 
-        /* Grunge overlay */
-        .grunge-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%25" height="100%25" filter="url(%23noise)" opacity="0.15"/></svg>');
-            pointer-events: none;
-            z-index: 100;
-            animation: grungeMove 20s linear infinite;
-        }
+/* ── Server name ── */
+.server-name{
+  font-size:clamp(3.5rem,8vw,6.5rem);
+  font-weight:700;
+  letter-spacing:.25em;
+  text-transform:uppercase;
+  background:linear-gradient(180deg, #fff 0%, rgba(255,255,255,.75) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  line-height:1;
+  opacity:0;transform:translateY(30px);
+  transition:opacity .9s ease .3s, transform .9s cubic-bezier(.2,.8,.3,1) .3s;
+}
+.server-name.in{opacity:1;transform:translateY(0);}
 
-        @keyframes grungeMove {
-            0%, 100% { transform: translate(0, 0); }
-            50% { transform: translate(-10px, -10px); }
-        }
+.server-sub{
+  font-size:clamp(.75rem,1.5vw,.9rem);
+  letter-spacing:.55em;
+  color:var(--red);
+  text-transform:uppercase;
+  margin-top:.6rem;
+  opacity:0;transform:translateY(20px);
+  transition:opacity .8s ease .5s, transform .8s ease .5s;
+}
+.server-sub.in{opacity:1;transform:translateY(0);}
 
-        /* Particles */
-        .particles {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 1;
-        }
+/* red accent line under name */
+.name-line{
+  width:0;height:2px;
+  background:linear-gradient(90deg, transparent, var(--red), transparent);
+  margin:.8rem auto 0;
+  box-shadow:0 0 12px var(--red-glow);
+  transition:width 1.2s cubic-bezier(.2,.8,.3,1) .7s;
+}
+.name-line.in{width:320px;}
 
-        .particle {
-            position: absolute;
-            width: 4px;
-            height: 4px;
-            background: #dc2626;
-            border-radius: 50%;
-            animation: float 10s infinite;
-            opacity: 0.6;
-        }
+/* ── Tagline ── */
+.tagline{
+  font-family:'Inter',sans-serif;
+  font-size:clamp(.75rem,1.2vw,.88rem);
+  letter-spacing:.2em;
+  color:rgba(255,255,255,.35);
+  text-transform:uppercase;
+  margin-top:1.5rem;
+  opacity:0;transition:opacity .8s ease .9s;
+}
+.tagline.in{opacity:1;}
 
-        @keyframes float {
-            0%, 100% {
-                transform: translateY(100vh) rotate(0deg);
-                opacity: 0;
-            }
-            10% {
-                opacity: 0.6;
-            }
-            90% {
-                opacity: 0.6;
-            }
-            100% {
-                transform: translateY(-100vh) rotate(720deg);
-                opacity: 0;
-            }
-        }
+/* ── Server stats strip ── */
+.stats{
+  display:flex;gap:2.5rem;margin-top:2rem;
+  opacity:0;transition:opacity .8s ease 1.1s;
+}
+.stats.in{opacity:1;}
+.stat{text-align:center;}
+.stat-val{
+  font-size:1.4rem;font-weight:700;color:var(--red);
+  text-shadow:0 0 16px hsl(0,100%,50%,.6);
+}
+.stat-label{
+  font-size:.65rem;letter-spacing:.2em;color:#555;
+  text-transform:uppercase;margin-top:.1rem;
+}
+.stat-divider{width:1px;background:linear-gradient(180deg,transparent,#333,transparent);align-self:stretch;}
 
-        /* Vignette */
-        .vignette {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(ellipse at center, transparent 0%, transparent 50%, rgba(0,0,0,0.8) 100%);
-            pointer-events: none;
-            z-index: 90;
-        }
+/* ═══════════════════════════════════════
+   BOTTOM SECTION — progress + rules
+══════════════════════════════════════════ */
+.bottom{
+  position:fixed;bottom:0;left:0;right:0;z-index:20;
+  padding:0 4vw 2.5rem;
+  opacity:0;transition:opacity .8s ease 1.3s;
+}
+.bottom.in{opacity:1;}
 
-        /* Logo container */
-        .logo-container {
-            position: relative;
-            z-index: 10;
-            margin-bottom: 40px;
-            animation: logoReveal 2s ease-out forwards;
-        }
+/* Rules ticker */
+.rules-ticker{
+  display:flex;align-items:center;gap:1rem;
+  margin-bottom:1.5rem;overflow:hidden;
+}
+.rules-tag{
+  font-size:.65rem;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--red);border:1px solid hsl(0,100%,50%,.4);
+  padding:.3rem .8rem;border-radius:4px;white-space:nowrap;flex-shrink:0;
+  background:hsl(0,100%,50%,.08);
+}
+.rules-scroll{
+  display:flex;gap:3rem;white-space:nowrap;
+  animation:rulesScroll 25s linear infinite;
+  font-size:.72rem;letter-spacing:.12em;color:#555;text-transform:uppercase;
+}
+@keyframes rulesScroll{
+  0%{transform:translateX(0);}
+  100%{transform:translateX(-50%);}
+}
 
-        @keyframes logoReveal {
-            0% {
-                transform: scale(0) rotate(-180deg);
-                opacity: 0;
-                filter: blur(20px);
-            }
-            50% {
-                filter: blur(0);
-            }
-            100% {
-                transform: scale(1) rotate(0deg);
-                opacity: 1;
-            }
-        }
+/* Progress bar */
+.progress-wrap{display:flex;flex-direction:column;gap:.6rem;}
+.progress-header{
+  display:flex;justify-content:space-between;align-items:center;
+}
+.progress-status{
+  font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:#444;
+}
+.progress-pct{
+  font-size:.75rem;letter-spacing:.1em;color:var(--red);
+  transition:color .3s;
+}
+.progress-track{
+  width:100%;height:3px;background:rgba(255,255,255,.06);
+  border-radius:2px;position:relative;overflow:visible;
+}
+.progress-fill{
+  height:100%;width:0%;
+  background:linear-gradient(90deg, var(--red-dark), var(--red));
+  border-radius:2px;
+  transition:width .3s ease;
+  position:relative;
+  box-shadow:0 0 10px hsl(0,100%,50%,.5);
+}
+/* Glowing dot at progress tip */
+.progress-fill::after{
+  content:'';
+  position:absolute;right:-5px;top:50%;transform:translateY(-50%);
+  width:10px;height:10px;border-radius:50%;
+  background:var(--red);
+  box-shadow:0 0 12px 3px hsl(0,100%,50%,.8);
+}
+/* Animated shimmer on progress bar */
+.progress-fill::before{
+  content:'';
+  position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.3) 50%,transparent 100%);
+  animation:shimmer 2s ease-in-out infinite;
+}
+@keyframes shimmer{
+  0%{transform:translateX(-100%);}
+  100%{transform:translateX(400%);}
+}
 
-        .logo {
-            width: 200px;
-            height: 200px;
-            filter: drop-shadow(0 0 15px rgba(220, 38, 38, 0.6));
-            animation: logoPulse 4s ease-in-out infinite;
-        }
+/* Music btn */
+.music-btn{
+  position:fixed;top:1.5rem;right:1.5rem;z-index:100;
+  background:rgba(0,0,0,.6);border:1px solid #2a2a2a;
+  border-radius:8px;padding:.45rem 1rem;
+  font-family:'Oswald',sans-serif;font-size:.7rem;
+  letter-spacing:.15em;text-transform:uppercase;
+  color:#555;cursor:pointer;
+  transition:all .25s;display:flex;align-items:center;gap:.5rem;
+  backdrop-filter:blur(8px);
+}
+.music-btn:hover{border-color:var(--red);color:var(--red);}
+.music-btn svg{transition:transform .3s;}
+.music-btn.playing svg{animation:musicPulse .8s ease-in-out infinite alternate;}
+@keyframes musicPulse{from{transform:scale(1);}to{transform:scale(1.2);}  }
 
-        @keyframes logoPulse {
-            0%, 100% {
-                filter: drop-shadow(0 0 20px rgba(220, 38, 38, 0.6));
-                transform: scale(1);
-            }
-            50% {
-                filter: drop-shadow(0 0 50px rgba(220, 38, 38, 1));
-                transform: scale(1.02);
-            }
-        }
-
-        @keyframes logoGlitch {
-            0%, 90%, 100% {
-                transform: translate(0);
-                filter: drop-shadow(0 0 30px rgba(220, 38, 38, 0.8));
-            }
-            92% {
-                transform: translate(-3px, 2px);
-                filter: drop-shadow(5px 0 30px rgba(220, 38, 38, 0.8)) hue-rotate(90deg);
-            }
-            94% {
-                transform: translate(3px, -2px);
-                filter: drop-shadow(-5px 0 30px rgba(220, 38, 38, 0.8)) hue-rotate(-90deg);
-            }
-            96% {
-                transform: translate(-2px, 0);
-            }
-        }
-
-        /* Server name */
-        .server-name {
-            font-size: 6rem;
-            font-weight: 900;
-            letter-spacing: 0.3em;
-            text-transform: uppercase;
-            background: linear-gradient(45deg, #dc2626, #991b1b, #dc2626);
-            background-size: 200% 200%;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-shadow: none;
-            animation: textGradient 3s ease infinite, textReveal 1.5s ease-out 0.5s forwards;
-            opacity: 0;
-            position: relative;
-            z-index: 10;
-        }
-
-        .server-name::after {
-            content: 'SOUTHSIDE';
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            -webkit-text-fill-color: transparent;
-            background: none;
-            text-shadow: 0 0 20px rgba(220, 38, 38, 0.5);
-            z-index: -1;
-            animation: textShadowPulse 2s ease-in-out infinite;
-        }
-
-        @keyframes textGradient {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-        }
-
-        @keyframes textReveal {
-            0% {
-                opacity: 0;
-                transform: translateY(50px) scale(0.8);
-                letter-spacing: 1em;
-            }
-            100% {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-                letter-spacing: 0.3em;
-            }
-        }
-
-        @keyframes textShadowPulse {
-            0%, 100% { text-shadow: 0 0 20px rgba(220, 38, 38, 0.3); }
-            50% { text-shadow: 0 0 40px rgba(220, 38, 38, 0.8), 0 0 60px rgba(220, 38, 38, 0.4); }
-        }
-
-        /* Tagline */
-        .tagline {
-            font-size: 1.2rem;
-            letter-spacing: 0.5em;
-            text-transform: uppercase;
-            color: #666;
-            margin-top: 20px;
-            opacity: 0;
-            animation: fadeInUp 1s ease-out 1.5s forwards;
-            z-index: 10;
-        }
-
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Progress bar container */
-        .progress-container {
-            position: absolute;
-            bottom: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 400px;
-            z-index: 10;
-        }
-
-        .progress-label {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            font-size: 0.9rem;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
-            color: #666;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 4px;
-            background: #1a1a1a;
-            border-radius: 2px;
-            overflow: visible;
-            position: relative;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #dc2626, #ef4444);
-            border-radius: 2px;
-            width: 0%;
-            transition: width 0.3s ease;
-            position: relative;
-            box-shadow: 0 0 10px rgba(220, 38, 38, 0.5);
-        }
-
-        .progress-fill::after {
-            content: '';
-            position: absolute;
-            right: 0;
-            top: -3px;
-            width: 10px;
-            height: 10px;
-            background: #dc2626;
-            border-radius: 50%;
-            box-shadow: 0 0 20px rgba(220, 38, 38, 1);
-        }
-
-        /* Blood drip effect */
-        .blood-drip {
-            position: absolute;
-            top: 100%;
-            right: -5px;
-            width: 2px;
-            height: 0;
-            background: linear-gradient(to bottom, #dc2626, transparent);
-            animation: drip 2s ease-in-out infinite;
-        }
-
-        @keyframes drip {
-            0%, 100% { height: 0; }
-            50% { height: 20px; }
-        }
-
-        /* Loading text */
-        .loading-text {
-            position: absolute;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 0.8rem;
-            letter-spacing: 0.3em;
-            color: #444;
-            z-index: 10;
-            animation: loadingPulse 1.5s ease-in-out infinite;
-        }
-
-        @keyframes loadingPulse {
-            0%, 100% { opacity: 0.4; }
-            50% { opacity: 1; }
-        }
-
-        /* Audio control */
-        .audio-control {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            background: rgba(0,0,0,0.5);
-            border: 1px solid #333;
-            padding: 10px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            color: #666;
-            font-size: 0.8rem;
-            transition: all 0.3s;
-        }
-
-        .audio-control:hover {
-            border-color: #dc2626;
-            color: #dc2626;
-        }
-
-        /* Rules popup */
-        .rules-popup {
-            position: fixed;
-            bottom: 120px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0,0,0,0.9);
-            border: 1px solid #333;
-            padding: 20px;
-            border-radius: 10px;
-            max-width: 500px;
-            opacity: 0;
-            animation: rulesIn 1s ease-out 2s forwards;
-            z-index: 10;
-        }
-
-        @keyframes rulesIn {
-            from {
-                opacity: 0;
-                transform: translateX(-50%) translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(-50%) translateY(0);
-            }
-        }
-
-        .rules-popup h3 {
-            color: #dc2626;
-            font-size: 1rem;
-            margin-bottom: 10px;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
-        }
-
-        .rules-popup p {
-            color: #666;
-            font-size: 0.85rem;
-            line-height: 1.6;
-            font-family: Arial, sans-serif;
-        }
-
-        /* Scanline effect */
-        .scanlines {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: repeating-linear-gradient(
-                0deg,
-                transparent,
-                transparent 2px,
-                rgba(0, 0, 0, 0.1) 2px,
-                rgba(0, 0, 0, 0.1) 4px
-            );
-            pointer-events: none;
-            z-index: 99;
-            opacity: 0.3;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .server-name {
-                font-size: 3rem;
-                letter-spacing: 0.2em;
-            }
-            .logo {
-                width: 150px;
-                height: 150px;
-            }
-            .progress-container {
-                width: 300px;
-            }
-        }
-    </style>
+/* ═══════════════════════════════════════
+   LIGHTNING FLASH
+══════════════════════════════════════════ */
+.lightning{
+  position:fixed;inset:0;z-index:8;pointer-events:none;
+  background:rgba(255,255,255,.07);opacity:0;
+  animation:lightningFlash 12s infinite 4s;
+}
+@keyframes lightningFlash{
+  0%,88%,96%,100%{opacity:0;}
+  89%{opacity:1;}
+  90%{opacity:0;}
+  92%{opacity:.7;}
+  93%{opacity:0;}
+}
+</style>
 </head>
 <body>
-    <!-- Audio control -->
-    <div class="audio-control" onclick="toggleMusic()">
-        🎵 Click for Music
+
+<!-- ── Intro cinematic ── -->
+<div id="intro">
+  <div class="intro-text">SOUTHSIDE ROLEPLAY</div>
+</div>
+
+<!-- ── Background layers ── -->
+<div class="bg-fallback"></div>
+<div class="bg-grid"></div>
+<video id="bg-video" autoplay muted loop playsinline>
+  <source src="background.mp4" type="video/mp4"/>
+</video>
+<div class="ambient ambient-left"></div>
+<div class="ambient ambient-right"></div>
+<div class="lightning"></div>
+<div class="embers" id="embers"></div>
+<div class="city-fade"></div>
+<div class="vignette"></div>
+<div class="scanlines"></div>
+
+<!-- ── Main content ── -->
+<div id="main">
+
+  <!-- Logo -->
+  <div class="logo-wrap" id="logoWrap">
+    <div class="logo-glow"></div>
+
+    <!-- Rotating dashed ring -->
+    <svg class="logo-ring-svg" width="200" height="200" viewBox="0 0 200 200">
+      <circle cx="100" cy="100" r="92" fill="none"
+        stroke="hsl(0,100%,50%,.2)" stroke-width="1"
+        stroke-dasharray="4 8"/>
+      <circle cx="100" cy="100" r="86" fill="none"
+        stroke="hsl(0,100%,50%,.08)" stroke-width="1"/>
+    </svg>
+
+    <!-- Static outer ring -->
+    <svg style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);" width="180" height="180" viewBox="0 0 180 180">
+      <circle cx="90" cy="90" r="84" fill="none"
+        stroke="hsl(0,100%,50%,.12)" stroke-width=".5"
+        stroke-dasharray="2 6"/>
+    </svg>
+
+    <!-- MAIN SVG LOGO -->
+    <svg class="logo-badge" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#1a0000"/>
+          <stop offset="100%" stop-color="#0a0000"/>
+        </linearGradient>
+        <linearGradient id="redGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="hsl(0,100%,55%)"/>
+          <stop offset="100%" stop-color="hsl(0,100%,32%)"/>
+        </linearGradient>
+        <filter id="redGlow">
+          <feGaussianBlur stdDeviation="3" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <!-- Shield body -->
+      <path d="M70 6 L120 22 L120 72 Q120 106 70 134 Q20 106 20 72 L20 22 Z"
+        fill="url(#shieldGrad)" stroke="hsl(0,100%,45%,.6)" stroke-width="1.5"/>
+
+      <!-- Shield inner border -->
+      <path d="M70 14 L113 28 L113 72 Q113 102 70 127 Q27 102 27 72 L27 28 Z"
+        fill="none" stroke="hsl(0,100%,45%,.25)" stroke-width=".8"/>
+
+      <!-- Red accent line at top of shield -->
+      <path d="M38 34 L102 34" stroke="url(#redGrad)" stroke-width="1.5" opacity=".6"/>
+
+      <!-- "SS" Text -->
+      <text x="70" y="88" font-family="Oswald,sans-serif" font-weight="700"
+        font-size="44" text-anchor="middle" dominant-baseline="middle"
+        fill="url(#redGrad)" filter="url(#redGlow)">SS</text>
+
+      <!-- Small "RP" below -->
+      <text x="70" y="110" font-family="Oswald,sans-serif" font-weight="400"
+        font-size="11" text-anchor="middle" letter-spacing="6"
+        fill="hsl(0,100%,50%,.55)">RP</text>
+
+      <!-- Corner diamond accents -->
+      <polygon points="70,8 73,12 70,16 67,12" fill="var(--red)" opacity=".8"/>
+      <polygon points="20,22 24,25 20,28 16,25" fill="var(--red)" opacity=".5"/>
+      <polygon points="120,22 124,25 120,28 116,25" fill="var(--red)" opacity=".5"/>
+    </svg>
+  </div>
+
+  <!-- Server name -->
+  <h1 class="server-name" id="serverName">SOUTHSIDE</h1>
+  <div class="name-line" id="nameLine"></div>
+  <p class="server-sub" id="serverSub">Roleplay &nbsp;·&nbsp; FiveM &nbsp;·&nbsp; Tunisia</p>
+  <p class="tagline" id="tagline">The Streets Remember</p>
+
+  <!-- Stats -->
+  <div class="stats" id="stats">
+    <div class="stat">
+      <div class="stat-val">24/7</div>
+      <div class="stat-label">Server</div>
     </div>
-
-    <!-- Audio element (add your music file) -->
-    <audio id="bgMusic" loop>
-        <!-- Replace with your music file -->
-        <source src="music.mp3" type="audio/mpeg">
-    </audio>
-
-    <!-- Video Background -->
-    <div class="video-background">
-        <video autoplay muted loop playsinline id="bgVideo">
-            <!-- Add your video file here -->
-            <source src="background.mp4" type="video/mp4">
-        </video>
-        <div class="video-overlay"></div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <div class="stat-val">100+</div>
+      <div class="stat-label">Players</div>
     </div>
-
-    <!-- Cinematic Effects -->
-    <div class="rain-container" id="rain"></div>
-    <div class="lightning"></div>
-    <div class="city-skyline"></div>
-    <div class="neon-glow"></div>
-    <div class="neon-glow-2"></div>
-    <div class="fog"></div>
-    <div class="reflection"></div>
-    
-    <!-- Effects -->
-    <div class="scanlines"></div>
-    <div class="grunge-overlay"></div>
-    <div class="vignette"></div>
-    
-    <!-- Particles -->
-    <div class="particles" id="particles"></div>
-
-    <!-- Logo -->
-    <div class="logo-container">
-        <img src="logo.png" alt="Southside Logo" class="logo" id="logo">
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <div class="stat-val">EU</div>
+      <div class="stat-label">Region</div>
     </div>
+  </div>
+</div>
 
-    <!-- Server Name -->
-    <h1 class="server-name">SOUTHSIDE</h1>
-    <p class="tagline">The Streets Remember</p>
+<!-- ── Bottom bar ── -->
+<div class="bottom" id="bottom">
 
-    <!-- Rules Popup -->
-    <div class="rules-popup">
-        <h3>⚠️ Server Rules</h3>
-        <p>• Respect all players and staff<br>
-        • No RDM or VDM<br>
-        • Roleplay over gunplay<br>
-        • Use Discord for support</p>
+  <!-- Rules ticker -->
+  <div class="rules-ticker">
+    <div class="rules-tag">Rules</div>
+    <div style="overflow:hidden;flex:1;">
+      <div class="rules-scroll">
+        <span>No RDM / VDM</span>
+        <span>•</span>
+        <span>Roleplay over gunplay</span>
+        <span>•</span>
+        <span>Respect all players and staff</span>
+        <span>•</span>
+        <span>No metagaming or powergaming</span>
+        <span>•</span>
+        <span>Use Discord for support</span>
+        <span>•</span>
+        <span>Stay in character at all times</span>
+        <span>•</span>
+        <span>No racist language or hate speech</span>
+        <span>•</span>
+        <span>No RDM / VDM</span>
+        <span>•</span>
+        <span>Roleplay over gunplay</span>
+        <span>•</span>
+        <span>Respect all players and staff</span>
+        <span>•</span>
+        <span>No metagaming or powergaming</span>
+        <span>•</span>
+        <span>Use Discord for support</span>
+        <span>•</span>
+        <span>Stay in character at all times</span>
+        <span>•</span>
+        <span>No racist language or hate speech</span>
+        <span>•</span>
+      </div>
     </div>
+  </div>
 
-    <!-- Progress Bar -->
-    <div class="progress-container">
-        <div class="progress-label">
-            <span>Loading Assets</span>
-            <span id="progress-text">0%</span>
-        </div>
-        <div class="progress-bar">
-            <div class="progress-fill" id="progress-fill">
-                <div class="blood-drip"></div>
-            </div>
-        </div>
+  <!-- Progress bar -->
+  <div class="progress-wrap">
+    <div class="progress-header">
+      <span class="progress-status" id="statusText">Connecting to server...</span>
+      <span class="progress-pct" id="pctText">0%</span>
     </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+  </div>
+</div>
 
-    <p class="loading-text">INITIALIZING SOUTHSIDE EXPERIENCE...</p>
+<!-- Music button -->
+<button class="music-btn" id="musicBtn" onclick="toggleMusic()">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M9 18V5l12-2v13M9 18c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm12-2c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2z"/>
+  </svg>
+  <span id="musicLabel">Music</span>
+</button>
 
-    <script>
-        // Create rain drops (reduced from 150 to 30 for performance)
-        const rainContainer = document.getElementById('rain');
-        for (let i = 0; i < 30; i++) {
-            const drop = document.createElement('div');
-            drop.className = 'rain-drop';
-            drop.style.left = Math.random() * 100 + '%';
-            drop.style.animationDelay = Math.random() * 2 + 's';
-            drop.style.animationDuration = (0.5 + Math.random() * 0.5) + 's';
-            drop.style.opacity = 0.1 + Math.random() * 0.3;
-            rainContainer.appendChild(drop);
-        }
+<audio id="bgMusic" loop>
+  <source src="music.mp3" type="audio/mpeg"/>
+</audio>
 
-        // Create particles (reduced from 50 to 15 for performance)
-        const particlesContainer = document.getElementById('particles');
-        for (let i = 0; i < 15; i++) {
-            const particle = document.createElement('div');
-            particle.className = 'particle';
-            particle.style.left = Math.random() * 100 + '%';
-            particle.style.animationDelay = Math.random() * 10 + 's';
-            particle.style.animationDuration = (10 + Math.random() * 10) + 's';
-            particlesContainer.appendChild(particle);
-        }
+<script>
+// ═══════════════════════════════════════
+// EMBERS
+// ═══════════════════════════════════════
+(function(){
+  const c = document.getElementById('embers');
+  for(let i=0;i<18;i++){
+    const e = document.createElement('div');
+    e.className='ember';
+    const s = .5+Math.random()*2.5;
+    e.style.cssText=`
+      left:${Math.random()*100}%;
+      bottom:${Math.random()*20}%;
+      width:${s}px;height:${s}px;
+      animation-duration:${6+Math.random()*10}s;
+      animation-delay:${Math.random()*8}s;
+      opacity:0;
+    `;
+    c.appendChild(e);
+  }
+})();
 
-        // Music toggle
-        let musicPlaying = false;
-        function toggleMusic() {
-            const audio = document.getElementById('bgMusic');
-            const btn = document.querySelector('.audio-control');
-            
-            if (musicPlaying) {
-                audio.pause();
-                btn.textContent = '🎵 Click for Music';
-            } else {
-                audio.play().catch(e => console.log('Audio play failed:', e));
-                btn.textContent = '🔊 Music On';
-            }
-            musicPlaying = !musicPlaying;
-        }
+// ═══════════════════════════════════════
+// VIDEO BG
+// ═══════════════════════════════════════
+const vid = document.getElementById('bg-video');
+vid.addEventListener('canplay', ()=>{ vid.classList.add('visible'); });
 
-        // Simulate loading progress
-        let progress = 0;
-        const progressFill = document.getElementById('progress-fill');
-        const progressText = document.getElementById('progress-text');
+// ═══════════════════════════════════════
+// INTRO SEQUENCE
+// ═══════════════════════════════════════
+const intro = document.getElementById('intro');
+const main  = document.getElementById('main');
 
-        function updateProgress() {
-            progress += Math.random() * 2;
-            if (progress > 100) progress = 100;
-            
-            progressFill.style.width = progress + '%';
-            progressText.textContent = Math.floor(progress) + '%';
+setTimeout(()=>{
+  // Fade out intro
+  intro.classList.add('fade-out');
 
-            if (progress < 100) {
-                setTimeout(updateProgress, 100 + Math.random() * 200);
-            }
-        }
+  // Reveal main content
+  main.classList.add('visible');
 
-        // Start progress after animations
-        setTimeout(updateProgress, 2000);
+  setTimeout(()=>{
+    intro.style.display='none';
+    document.getElementById('logoWrap').classList.add('in');
+  }, 400);
 
-        // FiveM loading screen compatibility
-        if (typeof window.invokeNative === 'function') {
-            // We're in FiveM
-            window.addEventListener('message', function(e) {
-                if (e.data.eventName === 'loadProgress') {
-                    progress = e.data.loadFraction * 100;
-                    progressFill.style.width = progress + '%';
-                    progressText.textContent = Math.floor(progress) + '%';
-                }
-            });
-        }
-    </script>
+  setTimeout(()=>{ document.getElementById('serverName').classList.add('in'); }, 700);
+  setTimeout(()=>{ document.getElementById('nameLine').classList.add('in'); }, 900);
+  setTimeout(()=>{ document.getElementById('serverSub').classList.add('in'); }, 1000);
+  setTimeout(()=>{ document.getElementById('tagline').classList.add('in'); }, 1200);
+  setTimeout(()=>{ document.getElementById('stats').classList.add('in'); }, 1400);
+  setTimeout(()=>{ document.getElementById('bottom').classList.add('in'); }, 1600);
+
+}, 1800);
+
+// ═══════════════════════════════════════
+// PROGRESS BAR
+// ═══════════════════════════════════════
+const fill   = document.getElementById('progressFill');
+const pctEl  = document.getElementById('pctText');
+const statEl = document.getElementById('statusText');
+let pct = 0;
+
+const statuses = [
+  [0,  'Connecting to server...'],
+  [15, 'Loading map resources...'],
+  [30, 'Downloading assets...'],
+  [50, 'Loading player data...'],
+  [65, 'Initializing scripts...'],
+  [80, 'Loading custom vehicles...'],
+  [92, 'Almost there...'],
+  [99, 'Welcome to Southside RP'],
+];
+
+function setProgress(p){
+  pct = Math.min(100, p);
+  fill.style.width = pct+'%';
+  pctEl.textContent = Math.floor(pct)+'%';
+  // Update status text
+  for(let i=statuses.length-1;i>=0;i--){
+    if(pct>=statuses[i][0]){ statEl.textContent=statuses[i][1]; break; }
+  }
+  if(pct>=100){ pctEl.style.color='#4ade80'; statEl.style.color='#4ade80'; }
+}
+
+// FiveM real loading integration
+let isFiveM = (typeof window.invokeNative !== 'undefined');
+if(isFiveM){
+  window.addEventListener('message', e=>{
+    if(e.data && e.data.eventName==='loadProgress'){
+      setProgress(e.data.loadFraction * 100);
+    }
+    if(e.data && e.data.eventName==='startConnect'){
+      statEl.textContent = 'Connecting to '+(e.data.hostname||'server')+'...';
+    }
+  });
+} else {
+  // Demo mode — simulate progress
+  let sim = 0;
+  function simStep(){
+    const inc = Math.random()*1.5 + (sim<20?1.5:sim<60?1:.4);
+    sim = Math.min(100,sim+inc);
+    setProgress(sim);
+    if(sim<100) setTimeout(simStep, 80+Math.random()*140);
+  }
+  setTimeout(simStep, 2400);
+}
+
+// ═══════════════════════════════════════
+// MUSIC
+// ═══════════════════════════════════════
+let playing=false;
+const audio = document.getElementById('bgMusic');
+const musicBtn = document.getElementById('musicBtn');
+const musicLabel = document.getElementById('musicLabel');
+
+function toggleMusic(){
+  if(playing){
+    audio.pause();
+    musicLabel.textContent='Music';
+    musicBtn.classList.remove('playing');
+  } else {
+    audio.volume=.45;
+    audio.play().catch(()=>{});
+    musicLabel.textContent='Playing';
+    musicBtn.classList.add('playing');
+  }
+  playing=!playing;
+}
+</script>
 </body>
 </html>

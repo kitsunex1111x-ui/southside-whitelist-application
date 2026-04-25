@@ -44,6 +44,19 @@ function getAuthHeader(): string {
   return `Bearer ${SUPABASE_ANON_KEY}`;
 }
 
+// Get auth header from active Supabase session (for critical RLS-gated operations)
+export async function getAuthHeaderFromSession(): Promise<string> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      return `Bearer ${session.access_token}`;
+    }
+  } catch {
+    // Fall through to localStorage method
+  }
+  return getAuthHeader();
+}
+
 export async function rawSelect<T = any>(
   table: string,
   params: Record<string, string> = {},
@@ -82,6 +95,38 @@ export async function rawInsert<T = any>(
 ): RawResult<T> {
   try {
     const authHeader = getAuthHeader();
+    const url = `${SUPABASE_URL}/rest/v1/${table}`;
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: authHeader,
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
+      return { data: null, error: { message: err.message ?? err.hint ?? `HTTP ${res.status}`, ...err } };
+    }
+
+    const data = await res.json();
+    return { data: data as T, error: null };
+  } catch (e: any) {
+    return { data: null, error: { message: e?.message ?? "Network error" } };
+  }
+}
+
+// Session-aware insert for RLS-critical operations (uses actual Supabase session token)
+export async function rawInsertWithAuth<T = any>(
+  table: string,
+  body: Record<string, any>
+): RawResult<T> {
+  try {
+    const authHeader = await getAuthHeaderFromSession();
     const url = `${SUPABASE_URL}/rest/v1/${table}`;
 
     const res = await fetch(url, {

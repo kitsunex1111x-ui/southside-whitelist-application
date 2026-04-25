@@ -24,17 +24,16 @@ const Auth = () => {
     if (discordLoading) return;
     setDiscordLoading(true);
     try {
+      // Use dynamic origin so it works on any domain (Vercel preview, custom domain, etc.)
+      const redirectTo = `${window.location.origin}/auth/callback`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "discord",
-        options: {
-          redirectTo: "https://southside-whitelist-application.vercel.app/auth/callback",
-        },
+        options: { redirectTo },
       });
       if (error) {
         toast.error(error.message);
         setDiscordLoading(false);
       }
-      // On success the page navigates away — no need to reset state
     } catch {
       toast.error("Failed to start Discord login. Please try again.");
       setDiscordLoading(false);
@@ -87,7 +86,7 @@ const Auth = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-8 animate-fade-in">
           <h1 className="font-heading text-4xl font-bold uppercase tracking-wider">
-            <span className="text-primary text-glow-red">SOUTHSIDE</span>RP
+            <span className="text-primary text-glow-red">SOUTHSIDE</span>
           </h1>
           <p className="text-muted-foreground mt-2">
             {isLogin ? "Welcome back, soldier." : "Join the streets."}

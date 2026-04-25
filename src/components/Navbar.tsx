@@ -27,13 +27,13 @@ const Navbar = () => {
       <div className="container mx-auto flex items-center justify-between py-4 px-4">
         <Link to="/" className="font-heading text-2xl font-bold tracking-wider">
           <span className="text-primary">SOUTHSIDE</span>
-          <span className="text-foreground">WHA</span>
         </Link>
 
         <div className="hidden md:flex items-center gap-6">
           <a href="/#features" className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">Features</a>
           <a href="/#founders" className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">Founders</a>
           <a href="/#join" className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">How to Join</a>
+          <a href="/#store" className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">Store</a>
 
           {user ? (
             <> 
@@ -80,6 +80,7 @@ const Navbar = () => {
             <a href="/#features" onClick={() => setMobileOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">Features</a>
             <a href="/#founders" onClick={() => setMobileOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">Founders</a>
             <a href="/#join" onClick={() => setMobileOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">How to Join</a>
+            <a href="/#store" onClick={() => setMobileOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">Store</a>
             {user ? (
               <>
                 <Link to="/dashboard" onClick={() => setMobileOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">Dashboard</Link>
