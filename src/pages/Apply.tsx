@@ -11,10 +11,6 @@ interface FormData {
   realName: string;
   discord: string;
   age: string;
-  rdm: string;
-  vdm: string;
-  metagaming: string;
-  powergaming: string;
   charName: string;
   backstory: string;
   traits: string;
@@ -22,11 +18,10 @@ interface FormData {
 
 const initialData: FormData = {
   realName: "", discord: "", age: "",
-  rdm: "", vdm: "", metagaming: "", powergaming: "",
   charName: "", backstory: "", traits: "",
 };
 
-const stepTitles = ["Personal Info", "RP Knowledge", "Character Creation"];
+const stepTitles = ["Personal Info", "Character Creation"];
 
 const Apply = () => {
   const { user } = useAuth();
@@ -81,26 +76,7 @@ const Apply = () => {
         }
         return true;
         
-      case 1: // RP Knowledge
-        if (!data.rdm.trim()) {
-          toast.error("Please explain what RDM is");
-          return false;
-        }
-        if (!data.vdm.trim()) {
-          toast.error("Please explain what VDM is");
-          return false;
-        }
-        if (!data.metagaming.trim()) {
-          toast.error("Please explain what Metagaming is");
-          return false;
-        }
-        if (!data.powergaming.trim()) {
-          toast.error("Please explain what Powergaming is");
-          return false;
-        }
-        return true;
-        
-      case 2: // Character Creation
+      case 1: // Character Creation
         if (!data.charName.trim()) {
           toast.error("Please enter your character name");
           return false;
@@ -130,16 +106,16 @@ const Apply = () => {
 
   // canSubmit just triggers error highlighting without toasts (toasts come from handleSubmit)
   const canSubmit = () => {
-    const allFilled = ['realName', 'discord', 'age', 'rdm', 'vdm', 'metagaming', 'powergaming', 'charName', 'backstory', 'traits']
+    const allFilled = ['realName', 'discord', 'age', 'charName', 'backstory', 'traits']
       .every(f => data[f as keyof FormData].trim() !== '');
     if (!allFilled) {
-      setValidationAttempts({ 0: true, 1: true, 2: true });
+      setValidationAttempts({ 0: true, 1: true });
     }
     return allFilled;
   };
 
   const validateForm = () => {
-    const requiredFields = ['realName', 'discord', 'age', 'rdm', 'vdm', 'metagaming', 'powergaming', 'charName', 'backstory', 'traits'];
+    const requiredFields = ['realName', 'discord', 'age', 'charName', 'backstory', 'traits'];
     const missingFields = requiredFields.filter(field => !data[field as keyof FormData].trim());
     
     if (missingFields.length > 0) {
@@ -214,10 +190,6 @@ const Apply = () => {
         real_name: data.realName,
         discord: data.discord,
         age: parseInt(data.age, 10),
-        rdm: data.rdm,
-        vdm: data.vdm,
-        metagaming: data.metagaming,
-        powergaming: data.powergaming,
         char_name: data.charName,
         backstory: data.backstory,
         traits: data.traits,
@@ -301,19 +273,10 @@ const Apply = () => {
                 )}
                 {step === 1 && (
                   <div className="space-y-6">
-                    <h2 className="font-heading text-2xl font-semibold uppercase tracking-wide mb-6">RP Knowledge</h2>
-                    <TextAreaField label="What is RDM?" value={data.rdm} onChange={(v) => update("rdm", v)} placeholder="Explain Random Deathmatch..." required showErrors={validationAttempts[1] || false} />
-                    <TextAreaField label="What is VDM?" value={data.vdm} onChange={(v) => update("vdm", v)} placeholder="Explain Vehicle Deathmatch..." required showErrors={validationAttempts[1] || false} />
-                    <TextAreaField label="What is MetaGaming?" value={data.metagaming} onChange={(v) => update("metagaming", v)} placeholder="Explain MetaGaming..." required showErrors={validationAttempts[1] || false} />
-                    <TextAreaField label="What is PowerGaming?" value={data.powergaming} onChange={(v) => update("powergaming", v)} placeholder="Explain PowerGaming..." required showErrors={validationAttempts[1] || false} />
-                  </div>
-                )}
-                {step === 2 && (
-                  <div className="space-y-6">
                     <h2 className="font-heading text-2xl font-semibold uppercase tracking-wide mb-6">Character Creation</h2>
-                    <InputField label="Character Name" value={data.charName} onChange={(v) => update("charName", v)} placeholder="e.g. Marcus 'Ghost' Rivera" required showErrors={validationAttempts[2] || false} />
-                    <TextAreaField label="Backstory" value={data.backstory} onChange={(v) => update("backstory", v)} placeholder="Tell us your character's story..." rows={5} required showErrors={validationAttempts[2] || false} />
-                    <TextAreaField label="Personality Traits" value={data.traits} onChange={(v) => update("traits", v)} placeholder="e.g. Loyal, Short-tempered, Street-smart" required showErrors={validationAttempts[2] || false} />
+                    <InputField label="Character Name" value={data.charName} onChange={(v) => update("charName", v)} placeholder="e.g. Marcus 'Ghost' Rivera" required showErrors={validationAttempts[1] || false} />
+                    <TextAreaField label="Backstory" value={data.backstory} onChange={(v) => update("backstory", v)} placeholder="Tell us your character's story..." rows={5} required showErrors={validationAttempts[1] || false} />
+                    <TextAreaField label="Personality Traits" value={data.traits} onChange={(v) => update("traits", v)} placeholder="e.g. Loyal, Short-tempered, Street-smart" required showErrors={validationAttempts[1] || false} />
                   </div>
                 )}
 
@@ -325,7 +288,7 @@ const Apply = () => {
                   >
                     <ArrowLeft size={16} /> Back
                   </button>
-                  {step < 2 ? (
+                  {step < 1 ? (
                     <button
                       onClick={() => {
                         if (canProceedToNext()) {

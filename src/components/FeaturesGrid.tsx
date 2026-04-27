@@ -1,4 +1,5 @@
 import { Shield, DollarSign, Users, Swords, Mic, MapPin, Car, Star } from "lucide-react";
+import { useScrollReveal } from "@/hooks/useScrollReveal";
 
 const features = [
   {
@@ -44,45 +45,52 @@ const features = [
 ];
 
 const FeaturesGrid = () => {
+  const headerRef = useScrollReveal(0);
+  const lineRef = useScrollReveal(200);
+
   return (
     <section id="features" className="py-28 relative">
-      {/* subtle background pattern */}
       <div className="absolute inset-0 bg-gradient-to-b from-background via-background/95 to-background pointer-events-none" />
 
       <div className="container mx-auto px-4 relative z-10">
-        <div className="text-center mb-16">
+        <div ref={headerRef} className="text-center mb-16">
           <p className="text-primary font-heading text-sm uppercase tracking-widest mb-3">What makes us different</p>
           <h2 className="font-heading text-4xl md:text-5xl font-bold uppercase tracking-wider mb-4">
             Why <span className="text-primary text-glow-red">Southside</span>?
           </h2>
-          <p className="text-muted-foreground max-w-xl mx-auto">
+          <div ref={lineRef} className="section-line" />
+          <p className="text-muted-foreground max-w-xl mx-auto mt-4">
             We don't just run a server — we build a world.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl mx-auto">
           {features.map((f, i) => (
-            <div
-              key={f.title}
-              className={`${f.span} group relative bg-card border border-border rounded-xl p-6 overflow-hidden
-                hover:border-primary/40 transition-all duration-300 opacity-0 animate-fade-in-up`}
-              style={{ animationDelay: `${i * 80}ms` }}
-            >
-              {/* gradient accent corner */}
-              <div className={`absolute top-0 left-0 w-32 h-32 bg-gradient-to-br ${f.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl pointer-events-none`} />
-
-              <div className="relative z-10">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4 group-hover:border-primary/40 group-hover:bg-primary/20 transition-all duration-300">
-                  <f.icon className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="font-heading text-lg font-semibold uppercase tracking-wide mb-2">{f.title}</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
-              </div>
-            </div>
+            <FeatureCard key={f.title} feature={f} delay={i * 80} />
           ))}
         </div>
       </div>
     </section>
+  );
+};
+
+const FeatureCard = ({ feature: f, delay }: { feature: typeof features[number]; delay: number }) => {
+  const ref = useScrollReveal(delay);
+  return (
+    <div
+      ref={ref}
+      className={`${f.span} group relative bg-card border border-border rounded-xl p-6 overflow-hidden
+        hover:border-primary/40 transition-all duration-300 hover:-translate-y-1`}
+    >
+      <div className={`absolute top-0 left-0 w-32 h-32 bg-gradient-to-br ${f.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl pointer-events-none`} />
+      <div className="relative z-10">
+        <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4 group-hover:border-primary/40 group-hover:bg-primary/20 transition-all duration-300">
+          <f.icon className="w-6 h-6 text-primary" />
+        </div>
+        <h3 className="font-heading text-lg font-semibold uppercase tracking-wide mb-2">{f.title}</h3>
+        <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
+      </div>
+    </div>
   );
 };
 

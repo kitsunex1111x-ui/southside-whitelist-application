@@ -9,18 +9,18 @@ import { toast } from "sonner";
 
 interface GangFormData {
   gangName: string;
-  gangType: string;
   memberCount: string;
   leaderDiscord: string;
   membersList: string;
+  gangColor: string;
   backstory: string;
   experience: string;
   whyJoin: string;
 }
 
 const initialData: GangFormData = {
-  gangName: "", gangType: "", memberCount: "", leaderDiscord: "",
-  membersList: "", backstory: "", experience: "", whyJoin: "",
+  gangName: "", memberCount: "", leaderDiscord: "",
+  membersList: "", gangColor: "", backstory: "", experience: "", whyJoin: "",
 };
 
 const GangApplication = () => {
@@ -35,12 +35,12 @@ const GangApplication = () => {
 
   const validate = () => {
     if (!data.gangName.trim())   { toast.error("Enter your gang name"); return false; }
-    if (!data.gangType)          { toast.error("Select a gang type"); return false; }
     if (!data.memberCount || parseInt(data.memberCount) < 1) {
       toast.error("Enter number of members"); return false;
     }
     if (!data.leaderDiscord.trim()) { toast.error("Enter leader Discord ID"); return false; }
     if (!data.membersList.trim())   { toast.error("Enter the members list"); return false; }
+    if (!data.gangColor.trim())     { toast.error("Enter gang color"); return false; }
     if (!data.backstory.trim() || data.backstory.length < 100) {
       toast.error("Backstory must be at least 100 characters"); return false;
     }
@@ -83,7 +83,7 @@ const GangApplication = () => {
         real_name:  data.gangName,
         discord:    data.leaderDiscord,
         age:        parseInt(data.memberCount, 10) || 1,
-        rdm:        data.gangType,
+        rdm:        data.gangColor,
         vdm:        "N/A",
         metagaming: "N/A",
         powergaming: data.experience,
@@ -164,20 +164,6 @@ const GangApplication = () => {
                 className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all" />
             </div>
 
-            {/* Gang Type */}
-            <div>
-              <label className="block text-sm font-medium mb-2">Gang Type *</label>
-              <select value={data.gangType} onChange={e => update("gangType", e.target.value)}
-                className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all">
-                <option value="">Select type...</option>
-                <option value="street">Street Gang</option>
-                <option value="organized">Organized Crime</option>
-                <option value="motorcycle">Motorcycle Club</option>
-                <option value="mafia">Mafia / Family</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-
             {/* Member Count — no minimum shown */}
             <div>
               <label className="block text-sm font-medium mb-2">Number of Members *</label>
@@ -200,6 +186,15 @@ const GangApplication = () => {
               <textarea value={data.membersList} onChange={e => update("membersList", e.target.value)}
                 rows={4} className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
                 placeholder={"List all members with their Discord IDs and roles\nExample:\n- Leader: username#0000\n- Member 1: name#0000\n- Member 2: name#0000"} />
+            </div>
+
+            {/* Gang Color */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Gang Color *</label>
+              <input type="text" value={data.gangColor} onChange={e => update("gangColor", e.target.value)}
+                placeholder="e.g. Red, Blue, Purple, Black & Gold"
+                className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all" />
+              <p className="text-xs text-muted-foreground mt-1">Main color or colors that represent your gang</p>
             </div>
 
             {/* Backstory */}
