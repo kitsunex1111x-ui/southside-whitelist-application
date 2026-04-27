@@ -10,6 +10,7 @@ const StoreSection = lazy(() => import("@/components/StoreSection"));
 const FoundersSection = lazy(() => import("@/components/FoundersSection"));
 const HowToJoin = lazy(() => import("@/components/HowToJoin"));
 const RecentlyAccepted = lazy(() => import("@/components/RecentlyAccepted"));
+const StreamersSection = lazy(() => import("@/components/StreamersSection"));
 const FinalCTA = lazy(() => import("@/components/FinalCTA"));
 
 const SectionLoader = () => (
@@ -29,6 +30,7 @@ const Index = () => {
         <FoundersSection />
         <HowToJoin />
         <RecentlyAccepted />
+        <StreamersSection />
         <FinalCTA />
       </Suspense>
       <Footer />

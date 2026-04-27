@@ -34,6 +34,7 @@ const Navbar = () => {
           <a href="/#store" className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">Store</a>
           <a href="/#founders" className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">Founders</a>
           <a href="/#join" className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">How to Join</a>
+          <a href="/#streamers" className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">Streamers</a>
 
           {user ? (
             <> 
@@ -81,6 +82,7 @@ const Navbar = () => {
             <a href="/#store" onClick={() => setMobileOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">Store</a>
             <a href="/#founders" onClick={() => setMobileOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">Founders</a>
             <a href="/#join" onClick={() => setMobileOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">How to Join</a>
+            <a href="/#streamers" onClick={() => setMobileOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">Streamers</a>
             {user ? (
               <>
                 <Link to="/dashboard" onClick={() => setMobileOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors text-sm uppercase tracking-wide">Dashboard</Link>
