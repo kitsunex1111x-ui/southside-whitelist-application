@@ -99,15 +99,13 @@
     }
     .hero-bg {
       position:absolute; inset:0; z-index:0;
-      background: radial-gradient(ellipse 80% 60% at 50% 30%, hsl(0 100% 12%/.25) 0%, transparent 70%),
-                  linear-gradient(180deg, #000 0%, #080808 60%, #000 100%);
     }
     /* Grid pattern overlay */
     .hero-bg::after {
       content:''; position:absolute; inset:0;
       background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
       background-size: 60px 60px;
-      opacity:.3;
+      opacity:.2;
       mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, black 30%, transparent 80%);
     }
     .hero-content { position:relative; z-index:1; max-width:800px; padding:0 1rem; }
@@ -424,7 +422,10 @@
 
   <!-- HERO -->
   <section class="hero">
-    <div class="hero-bg"></div>
+    <!-- Sunset City Background Image -->
+    <div class="hero-bg" style="background-image:url('images/city-sunset.jpg'); background-size:cover; background-position:center; opacity:0.6;"></div>
+    <!-- Gradient overlay for better text readability -->
+    <div style="position:absolute; inset:0; background:linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.7) 70%, rgba(0,0,0,0.95) 100%); z-index:0;"></div>
     <!-- floating glow shapes -->
     <div class="hero-shape" style="width:500px;height:500px;top:-120px;left:-180px;opacity:.4;"></div>
     <div class="hero-shape" style="width:400px;height:400px;bottom:-100px;right:-150px;opacity:.3;"></div>
@@ -481,7 +482,7 @@
       <div class="products" id="productsGrid">
 
         <!-- VEHICLES -->
-        <div class="product-card" data-cat="vehicle" onclick="openModal('Addon Car','60 Dt','Premium addon vehicle for your collection. High-quality model with custom handling and performance upgrades.','vehicle','hot',['Car','Addon','Performance'])">
+        <div class="product-card" data-cat="vehicle" onclick="openModal('Addon Car','50 Dt','Premium addon vehicle for your collection. High-quality model with custom handling and performance upgrades.','vehicle','hot',['Car','Addon','Performance'])">
           <div class="shimmer"></div>
           <div class="product-img">
             <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a0000,#2d0a0a);font-size:4rem;">🚗</div>
@@ -497,13 +498,13 @@
             <h3 class="product-name">Addon Car</h3>
             <p class="product-desc">Premium addon vehicle for your collection. High-quality model with custom handling and performance upgrades.</p>
             <div class="product-footer">
-              <div class="product-price">60 Dt <span>/ one-time</span></div>
+              <div class="product-price">50 Dt <span>/ one-time</span></div>
               <button class="btn btn-buy">Buy Now</button>
             </div>
           </div>
         </div>
 
-        <div class="product-card" data-cat="vehicle" onclick="openModal('Addon Car Redesign','75 Dt','Design your car with your name & logo. Full custom livery and personalized branding on your addon vehicle.','vehicle','new',['Custom Design','Logo','Branding'])">
+        <div class="product-card" data-cat="vehicle" onclick="openModal('Addon Car Redesign','65 Dt','Design your car with your name & logo. Full custom livery and personalized branding on your addon vehicle.','vehicle','new',['Custom Design','Logo','Branding'])">
           <div class="product-img">
             <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#00001a,#0a0a2d);font-size:4rem;">🏎️</div>
             <span class="product-badge badge-new">New</span>
@@ -518,13 +519,13 @@
             <h3 class="product-name">Addon Car Redesign</h3>
             <p class="product-desc">Design your car with your name & logo. Full custom livery and personalized branding on your addon vehicle.</p>
             <div class="product-footer">
-              <div class="product-price">75 Dt <span>/ one-time</span></div>
+              <div class="product-price">65 Dt <span>/ one-time</span></div>
               <button class="btn btn-buy">Buy Now</button>
             </div>
           </div>
         </div>
 
-        <div class="product-card" data-cat="vehicle" onclick="openModal('Addon Car VIP','100 Dt','VIP package: Ken enti tnajam ta5ouha + Redesign included. Best value for serious collectors.','vehicle','rare',['VIP','Redesign','Exclusive'])">
+        <div class="product-card" data-cat="vehicle" onclick="openModal('Addon Car VIP','80 Dt','VIP package: Ken enti tnajam ta5ouha + Redesign included. Best value for serious collectors.','vehicle','rare',['VIP','Redesign','Exclusive'])">
           <div class="product-img">
             <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a0a00,#2d1500);font-size:4rem;">🏆</div>
             <span class="product-badge badge-rare">VIP</span>
@@ -539,7 +540,7 @@
             <h3 class="product-name">Addon Car VIP</h3>
             <p class="product-desc">VIP package: Ken enti tnajam ta5ouha + Redesign included. Best value for serious collectors.</p>
             <div class="product-footer">
-              <div class="product-price">100 Dt <span>/ one-time</span></div>
+              <div class="product-price">80 Dt <span>/ one-time</span></div>
               <button class="btn btn-buy">Buy Now</button>
             </div>
           </div>
@@ -566,7 +567,7 @@
           </div>
         </div>
 
-        <div class="product-card" data-cat="vehicle" onclick="openModal('Addon Moto VIP','90 Dt','VIP motorcycle package with exclusive design options and premium customization features.','vehicle','hot',['Moto','VIP','Exclusive'])">
+        <div class="product-card" data-cat="vehicle" onclick="openModal('Addon Moto VIP','70 Dt','VIP motorcycle package with exclusive design options and premium customization features.','vehicle','hot',['Moto','VIP','Exclusive'])">
           <div class="product-img">
             <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a001a,#2d002d);font-size:4rem;">🛵</div>
             <span class="product-badge badge-hot">Hot</span>
@@ -581,7 +582,7 @@
             <h3 class="product-name">Addon Moto VIP</h3>
             <p class="product-desc">VIP motorcycle package with exclusive design options and premium customization features.</p>
             <div class="product-footer">
-              <div class="product-price">90 Dt <span>/ one-time</span></div>
+              <div class="product-price">70 Dt <span>/ one-time</span></div>
               <button class="btn btn-buy">Buy Now</button>
             </div>
           </div>
@@ -695,7 +696,7 @@
         </div>
 
         <!-- PEDS -->
-        <div class="product-card" data-cat="ped" onclick="openModal('Addon Ped','100 Dt','Custom addon character ped with unique appearance and exclusive clothing options.','ped','hot',['Ped','Character','Exclusive'])">
+        <div class="product-card" data-cat="ped" onclick="openModal('Addon Ped','70 Dt','Custom addon character ped with unique appearance and exclusive clothing options.','ped','hot',['Ped','Character','Exclusive'])">
           <div class="product-img">
             <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a1400,#2d2200);font-size:4rem;">🧍</div>
             <span class="product-badge badge-hot">Hot</span>
@@ -710,7 +711,7 @@
             <h3 class="product-name">Addon Ped</h3>
             <p class="product-desc">Custom addon character ped with unique appearance and exclusive clothing options.</p>
             <div class="product-footer">
-              <div class="product-price">100 Dt <span>/ one-time</span></div>
+              <div class="product-price">70 Dt <span>/ one-time</span></div>
               <button class="btn btn-buy">Buy Now</button>
             </div>
           </div>
