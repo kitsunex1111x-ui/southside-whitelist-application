@@ -4,16 +4,15 @@ import { Navigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { rawSelect, rawUpdate, rawInsert, rawDelete } from "@/integrations/supabase/client";
-import { Check, X, MessageSquare, Loader2, Copy, RefreshCw, FileText, Users } from "lucide-react";
+import { Check, X, MessageSquare, Loader2, Copy, RefreshCw, FileText } from "lucide-react";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
 
 type Application = Database["public"]["Tables"]["applications"]["Row"];
 type Status = Database["public"]["Enums"]["application_status"];
-type TypeTab = "whitelist" | "gang";
 type StatusFilter = Status | "all";
 
-/* ── tiny sub-components ──────────────────────────────────────────── */
+/* ── sub-components ───────────────────────────────────────────────── */
 const StatCard = ({ label, value, color }: { label: string; value: number; color?: string }) => (
   <div className="bg-card border border-border rounded-xl p-5 text-center">
     <p className={`font-heading text-3xl font-bold ${color ?? "text-foreground"}`}>{value}</p>
@@ -22,10 +21,15 @@ const StatCard = ({ label, value, color }: { label: string; value: number; color
 );
 
 const StatusBadge = ({ status }: { status: string }) => {
-  const c = status === "accepted" ? "text-green-400 bg-green-400/10 border-green-400/20"
+  const c =
+    status === "accepted" ? "text-green-400 bg-green-400/10 border-green-400/20"
     : status === "rejected" ? "text-red-400 bg-red-400/10 border-red-400/20"
     : "text-yellow-400 bg-yellow-400/10 border-yellow-400/20";
-  return <span className={`px-3 py-1 rounded-full text-xs font-heading uppercase tracking-wide border ${c}`}>{status}</span>;
+  return (
+    <span className={`px-3 py-1 rounded-full text-xs font-heading uppercase tracking-wide border ${c}`}>
+      {status}
+    </span>
+  );
 };
 
 const Field = ({ label, value }: { label: string; value: string }) => (
@@ -51,40 +55,33 @@ const Skeleton = () => (
 /* ── main component ───────────────────────────────────────────────── */
 const AdminDashboard = () => {
   const { user, isAdmin, loading: authLoading } = useAuth();
-  const [apps, setApps]           = useState<Application[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [typeTab, setTypeTab]     = useState<TypeTab>("whitelist");
+  const [apps, setApps]                 = useState<Application[]>([]);
+  const [loading, setLoading]           = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [saving, setSaving]       = useState(false);
-  const [expanded, setExpanded]   = useState<string | null>(null);
-  const [notesModal, setNotesModal]   = useState<{ id: string; notes: string } | null>(null);
-  const [confirm, setConfirm]     = useState<{ id: string; status: Status } | null>(null);
-  const [pendingCounts, setPendingCounts] = useState({ whitelist: 0, gang: 0 });
+  const [saving, setSaving]             = useState(false);
+  const [expanded, setExpanded]         = useState<string | null>(null);
+  const [notesModal, setNotesModal]     = useState<{ id: string; notes: string } | null>(null);
+  const [confirm, setConfirm]           = useState<{ id: string; status: Status } | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
 
   const fetchApps = useCallback(async () => {
     if (!user || !isAdmin) { setApps([]); setLoading(false); return; }
     setLoading(true);
-    // Only fetch whitelist + gang — staff goes to Owner Panel
     const params: Record<string, string> = {
       select: "*",
       order: "created_at.desc",
-      type: `eq.${typeTab}`,
+      type: "eq.whitelist",
     };
     if (statusFilter !== "all") params.status = `eq.${statusFilter}`;
     const { data, error } = await rawSelect<Application[]>("applications", params);
     if (error) { toast.error("Failed to load applications."); setApps([]); }
     else setApps(data ?? []);
-    // Refresh pending counts for both tabs
-    const [wl, g] = await Promise.all([
-      rawSelect<{ id: string }[]>("applications", { type: "eq.whitelist", status: "eq.pending", select: "id" }),
-      rawSelect<{ id: string }[]>("applications", { type: "eq.gang", status: "eq.pending", select: "id" }),
-    ]);
-    setPendingCounts({
-      whitelist: Array.isArray(wl.data) ? wl.data.length : 0,
-      gang: Array.isArray(g.data) ? g.data.length : 0,
+    const { data: pending } = await rawSelect<{ id: string }[]>("applications", {
+      type: "eq.whitelist", status: "eq.pending", select: "id",
     });
+    setPendingCount(Array.isArray(pending) ? pending.length : 0);
     setLoading(false);
-  }, [user, isAdmin, typeTab, statusFilter]);
+  }, [user, isAdmin, statusFilter]);
 
   useEffect(() => { if (isAdmin) fetchApps(); }, [isAdmin, fetchApps]);
 
@@ -106,18 +103,15 @@ const AdminDashboard = () => {
       const { error } = await rawUpdate("applications", { id: `eq.${id}` },
         { status, updated_at: new Date().toISOString() });
       if (error) { toast.error(`Failed: ${error.message}`); return; }
-
       const { data: arr } = await rawSelect<{ user_id: string; discord: string; char_name: string }[]>(
         "applications", { id: `eq.${id}`, select: "user_id,discord,char_name" });
       const app = Array.isArray(arr) ? arr[0] : null;
-
       if (status === "accepted" && app?.user_id) {
         const { data: ex } = await rawSelect<{ role: string }[]>(
           "user_roles", { user_id: `eq.${app.user_id}`, role: "eq.accepted", select: "role" });
         if (!Array.isArray(ex) || ex.length === 0)
           await rawInsert("user_roles", { user_id: app.user_id, role: "accepted" });
       } else if (status === "rejected" && app?.user_id) {
-        // Remove the accepted role when rejected
         await rawDelete("user_roles", { user_id: `eq.${app.user_id}`, role: "eq.accepted" });
       }
       await rawInsert("admin_logs", {
@@ -170,27 +164,18 @@ const AdminDashboard = () => {
               <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
             </button>
           </div>
-          <p className="text-muted-foreground mb-8">Review whitelist and gang applications.</p>
+          <p className="text-muted-foreground mb-8">Review whitelist applications.</p>
 
-          {/* type tabs */}
+          {/* whitelist tab only — gang apps moved to Owner Panel */}
           <div className="flex gap-2 mb-6 p-1 bg-secondary rounded-xl w-fit">
-            {([
-              { key: "whitelist", label: "Whitelist", icon: <FileText size={15} />, count: pendingCounts.whitelist },
-              { key: "gang",      label: "Gang",      icon: <Users size={15} />,    count: pendingCounts.gang },
-            ] as const).map(t => (
-              <button key={t.key} onClick={() => { setTypeTab(t.key); setStatusFilter("all"); setExpanded(null); }}
-                className={`relative flex items-center gap-2 px-5 py-2.5 rounded-lg font-heading text-sm uppercase tracking-wider transition-all ${
-                  typeTab === t.key
-                    ? "bg-card text-foreground shadow-sm border border-border"
-                    : "text-muted-foreground hover:text-foreground"}`}>
-                {t.icon} {t.label}
-                {t.count > 0 && (
-                  <span className="absolute -top-2 -right-2 min-w-[20px] h-5 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
-                    {t.count}
-                  </span>
-                )}
-              </button>
-            ))}
+            <button className="relative flex items-center gap-2 px-5 py-2.5 rounded-lg font-heading text-sm uppercase tracking-wider bg-primary text-primary-foreground">
+              <FileText size={15} /> Whitelist
+              {pendingCount > 0 && (
+                <span className="absolute -top-2 -right-2 min-w-[20px] h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
           </div>
 
           {/* stats */}
@@ -203,24 +188,27 @@ const AdminDashboard = () => {
 
           {/* status filter */}
           <div className="flex items-center gap-2 mb-6 flex-wrap">
-            {(["all", "pending", "accepted", "rejected"] as const).map(f => (
-              <button key={f} onClick={() => setStatusFilter(f)}
+            {(["all", "pending", "accepted", "rejected"] as const).map(status => (
+              <button key={status} onClick={() => setStatusFilter(status)}
                 className={`px-4 py-1.5 rounded-md font-heading text-xs uppercase tracking-wider transition-all ${
-                  statusFilter === f ? "gradient-red text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
-                {f}
+                  statusFilter === status
+                    ? "gradient-red text-primary-foreground"
+                    : "bg-secondary text-muted-foreground hover:text-foreground"
+                }`}>
+                {status}
               </button>
             ))}
           </div>
 
-          {/* list */}
+          {/* application list */}
           {loading ? (
             <div className="space-y-4"><Skeleton /><Skeleton /><Skeleton /></div>
           ) : apps.length === 0 ? (
             <div className="text-center py-20">
-              {typeTab === "whitelist"
-                ? <FileText size={40} className="text-muted-foreground mx-auto mb-3 opacity-30" />
-                : <Users size={40} className="text-muted-foreground mx-auto mb-3 opacity-30" />}
-              <p className="text-muted-foreground">No {typeTab} applications{statusFilter !== "all" ? ` with status "${statusFilter}"` : ""}.</p>
+              <FileText size={40} className="text-muted-foreground mx-auto mb-3 opacity-30" />
+              <p className="text-muted-foreground">
+                No whitelist applications{statusFilter !== "all" ? ` with status "${statusFilter}"` : ""}.
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -228,19 +216,22 @@ const AdminDashboard = () => {
                 const isOpen = expanded === app.id;
                 return (
                   <div key={app.id} className="bg-card border border-border rounded-xl overflow-hidden transition-all">
+
                     {/* collapsed row */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 cursor-pointer"
-                      onClick={() => setExpanded(isOpen ? null : app.id)}>
+                    <div
+                      className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 cursor-pointer"
+                      onClick={() => setExpanded(isOpen ? null : app.id)}
+                    >
                       <div className="flex items-center gap-4">
-                        <div className={`w-11 h-11 rounded-full flex items-center justify-center font-heading text-base font-bold text-white flex-shrink-0 ${
-                          typeTab === "gang" ? "bg-gradient-to-br from-red-600 to-red-800" : "gradient-red"}`}>
+                        <div className="w-11 h-11 rounded-full flex items-center justify-center font-heading text-base font-bold text-white flex-shrink-0 gradient-red">
                           {app.char_name?.[0]?.toUpperCase() ?? "?"}
                         </div>
                         <div className="min-w-0">
                           <p className="font-heading font-semibold text-base leading-tight">{app.char_name || "—"}</p>
                           <div className="flex items-center gap-1 mt-0.5">
                             <p className="text-sm text-muted-foreground truncate">{app.discord}</p>
-                            <button onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(app.discord ?? ""); toast.success("Copied!"); }}
+                            <button
+                              onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(app.discord ?? ""); toast.success("Copied!"); }}
                               className="p-1 rounded text-muted-foreground hover:text-primary transition-colors flex-shrink-0">
                               <Copy size={12} />
                             </button>
@@ -248,49 +239,43 @@ const AdminDashboard = () => {
                           </div>
                         </div>
                       </div>
+
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <StatusBadge status={app.status} />
                         <span className="text-xs text-muted-foreground">{new Date(app.created_at).toLocaleDateString()}</span>
-                        <div className="ml-2 flex gap-1" onClick={e => e.stopPropagation()}>
-                          <button onClick={() => setConfirm({ id: app.id, status: "accepted" })}
-                            disabled={saving || app.status === "accepted"}
-                            className="p-2 rounded-md bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-all disabled:opacity-30" title="Accept">
-                            <Check size={16} />
-                          </button>
-                          <button onClick={() => setConfirm({ id: app.id, status: "rejected" })}
-                            disabled={saving || app.status === "rejected"}
-                            className="p-2 rounded-md bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all disabled:opacity-30" title={app.status === "accepted" ? "Revoke & Reject" : "Reject"}>
-                            <X size={16} />
-                          </button>
-                          <button onClick={() => setNotesModal({ id: app.id, notes: app.admin_notes ?? "" })}
-                            className="p-2 rounded-md bg-secondary text-muted-foreground hover:text-foreground transition-all" title="Notes">
-                            <MessageSquare size={16} />
-                          </button>
-                        </div>
+                      </div>
+
+                      {/* action buttons */}
+                      <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setConfirm({ id: app.id, status: "accepted" })}
+                          disabled={saving || app.status === "accepted"}
+                          className="p-2 rounded-md bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-all disabled:opacity-30" title="Accept">
+                          <Check size={16} />
+                        </button>
+                        <button onClick={() => setConfirm({ id: app.id, status: "rejected" })}
+                          disabled={saving || app.status === "rejected"}
+                          className="p-2 rounded-md bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all disabled:opacity-30"
+                          title={app.status === "accepted" ? "Revoke & Reject" : "Reject"}>
+                          <X size={16} />
+                        </button>
+                        <button onClick={() => setNotesModal({ id: app.id, notes: app.admin_notes ?? "" })}
+                          className="p-2 rounded-md bg-secondary text-muted-foreground hover:text-foreground transition-all" title="Notes">
+                          <MessageSquare size={16} />
+                        </button>
                       </div>
                     </div>
 
-                    {/* expanded detail */}
+                    {/* expanded detail — whitelist fields only, no rdm/vdm/powergaming */}
                     {isOpen && (
                       <div className="border-t border-border px-5 pb-5 pt-4 space-y-4 animate-in fade-in duration-150">
-                        {typeTab === "whitelist" ? (
-                          <>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            </div>
-                            <Field label="Backstory" value={app.backstory ?? ""} />
-                            <Field label="Character Traits" value={app.traits ?? ""} />
-                          </>
-                        ) : (
-                          <>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <Field label="Gang Name"        value={app.gang_name ?? ""} />
-                              <Field label="Gang Color"        value={app.gang_color ?? ""} />
-                            </div>
-                            <Field label="Members" value={app.char_name ?? ""} />
-                            <Field label="Gang Backstory" value={app.backstory ?? ""} />
-                            <Field label="Why Accept" value={app.traits ?? ""} />
-                          </>
-                        )}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <Field label="Character Name" value={app.char_name ?? ""} />
+                          <Field label="Real Name"      value={app.real_name ?? ""} />
+                          <Field label="Discord"        value={app.discord ?? ""} />
+                          <Field label="Age"            value={String(app.age ?? "—")} />
+                        </div>
+                        <Field label="Backstory"        value={app.backstory ?? ""} />
+                        <Field label="Character Traits" value={app.traits ?? ""} />
                         {app.admin_notes && (
                           <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
                             <p className="text-xs text-primary uppercase tracking-wide mb-1 font-medium">Admin Note</p>
@@ -299,11 +284,13 @@ const AdminDashboard = () => {
                         )}
                       </div>
                     )}
+
                   </div>
                 );
               })}
             </div>
           )}
+
         </div>
       </div>
 
@@ -320,19 +307,25 @@ const AdminDashboard = () => {
                     {isRevoke ? "Revoke & Reject" : confirm.status === "accepted" ? "Confirm Accept" : "Confirm Reject"}
                   </h3>
                   <p className="text-muted-foreground text-sm mb-2">
-                    Are you sure you want to <span className={confirm.status === "accepted" ? "text-green-400 font-semibold" : "text-red-400 font-semibold"}>
+                    Are you sure you want to{" "}
+                    <span className={confirm.status === "accepted" ? "text-green-400 font-semibold" : "text-red-400 font-semibold"}>
                       {confirm.status}
-                    </span> this application?
+                    </span>{" "}this application?
                   </p>
                   {isRevoke && (
                     <p className="text-xs text-red-400/80 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 mb-4">
-                      ⚠️ This will remove the player's whitelisted role and apply a 12-hour re-apply cooldown.
+                      ⚠️ This will remove the player's whitelisted role.
                     </p>
                   )}
                   <div className="flex gap-3 justify-end mt-4">
-                    <button onClick={() => setConfirm(null)} className="px-4 py-2 rounded-md bg-secondary text-muted-foreground hover:text-foreground font-heading text-sm uppercase">Cancel</button>
+                    <button onClick={() => setConfirm(null)}
+                      className="px-4 py-2 rounded-md bg-secondary text-muted-foreground hover:text-foreground font-heading text-sm uppercase">
+                      Cancel
+                    </button>
                     <button onClick={() => updateStatus(confirm.id, confirm.status)} disabled={saving}
-                      className={`flex items-center gap-2 px-6 py-2 rounded-md font-heading text-sm uppercase disabled:opacity-70 text-white ${confirm.status === "accepted" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}`}>
+                      className={`flex items-center gap-2 px-6 py-2 rounded-md font-heading text-sm uppercase disabled:opacity-70 text-white ${
+                        confirm.status === "accepted" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"
+                      }`}>
                       {saving && <Loader2 className="animate-spin" size={16} />}
                       {isRevoke ? "Revoke Access" : confirm.status === "accepted" ? "Accept" : "Reject"}
                     </button>
@@ -353,7 +346,10 @@ const AdminDashboard = () => {
               rows={4} placeholder="Add notes visible to the applicant..."
               className="w-full bg-secondary border border-border rounded-md px-4 py-3 text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none mb-4" />
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setNotesModal(null)} className="px-4 py-2 rounded-md bg-secondary text-muted-foreground hover:text-foreground font-heading text-sm uppercase">Cancel</button>
+              <button onClick={() => setNotesModal(null)}
+                className="px-4 py-2 rounded-md bg-secondary text-muted-foreground hover:text-foreground font-heading text-sm uppercase">
+                Cancel
+              </button>
               <button onClick={saveNotes} disabled={saving}
                 className="flex items-center gap-2 gradient-red text-primary-foreground px-6 py-2 rounded-md font-heading text-sm uppercase hover:box-glow-red transition-all disabled:opacity-70">
                 {saving && <Loader2 className="animate-spin" size={16} />} Save

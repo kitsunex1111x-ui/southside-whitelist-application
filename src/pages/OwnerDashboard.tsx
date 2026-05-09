@@ -5,7 +5,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { rawSelect, rawInsert, rawInsertWithAuth, rawDelete, rawUpdate, rawRpc } from "@/integrations/supabase/client";
 import { Shield, Trash2, Plus, Loader2, UserCog, Clock, RefreshCw,
-  CheckCircle, XCircle, UserPlus, UserMinus, FileText, Activity,
+  CheckCircle, XCircle, UserPlus, UserMinus, FileText, Activity, Users,
   Check, X, MessageSquare, Copy, Settings, ToggleLeft, ToggleRight } from "lucide-react";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
@@ -13,7 +13,7 @@ import type { Database } from "@/integrations/supabase/types";
 type AppRole = Database["public"]["Enums"]["app_role"];
 type Status  = Database["public"]["Enums"]["application_status"];
 type Application = Database["public"]["Tables"]["applications"]["Row"];
-type OwnerTab = "roles" | "staff" | "logs" | "settings";
+type OwnerTab = "roles" | "gang" | "staff" | "logs" | "settings";
 
 interface RoleEntry { id: string; user_id: string; role: AppRole; displayName: string; }
 interface LogEntry  { id: string; actor_user_id: string; action: string;
@@ -67,6 +67,7 @@ const OwnerDashboard = () => {
   const [roles, setRoles]         = useState<RoleEntry[]>([]);
   const [logs, setLogs]           = useState<LogEntry[]>([]);
   const [staffApps, setStaffApps] = useState<Application[]>([]);
+  const [gangApps, setGangApps]   = useState<Application[]>([]);
   const [newDiscordId, setNewDiscordId] = useState("");
   const [newRole, setNewRole]     = useState<AppRole>("admin");
   const [adding, setAdding]       = useState(false);
@@ -74,6 +75,7 @@ const OwnerDashboard = () => {
   const [saving, setSaving]       = useState(false);
   const [expanded, setExpanded]   = useState<string | null>(null);
   const [staffFilter, setStaffFilter] = useState<Status | "all">("all");
+  const [gangFilter, setGangFilter]   = useState<Status | "all">("all");
   const [confirm, setConfirm]     = useState<{ id: string; status: Status } | null>(null);
   const [notesModal, setNotesModal] = useState<{ id: string; notes: string } | null>(null);
   const [wlEnabled, setWlEnabled]   = useState<boolean>(true);
@@ -111,6 +113,12 @@ const OwnerDashboard = () => {
       const { data: staffRaw } = await rawSelect<Application[]>("applications", staffParams);
       setStaffApps(staffRaw ?? []);
 
+      // Gang applications
+      const gangParams: Record<string, string> = { select: "*", type: "eq.gang", order: "created_at.desc" };
+      if (gangFilter !== "all") gangParams.status = `eq.${gangFilter}`;
+      const { data: gangRaw } = await rawSelect<Application[]>("applications", gangParams);
+      setGangApps(gangRaw ?? []);
+
       // Logs
       const { data: logsRaw } = await rawSelect<{ id: string; actor_user_id: string; action: string;
         target_id: string | null; details: any; created_at: string }[]>(
@@ -133,7 +141,7 @@ const OwnerDashboard = () => {
       }
     } catch { toast.error("Failed to load owner data."); }
     finally { setLoading(false); }
-  }, [user, staffFilter]);
+  }, [user, staffFilter, gangFilter]);
 
   useEffect(() => { if (isOwner) fetchData(); }, [isOwner, fetchData]);
 
@@ -273,11 +281,19 @@ const OwnerDashboard = () => {
     rejected: staffApps.filter(a => a.status === "rejected").length,
   };
 
+  const gangStats = {
+    total: gangApps.length,
+    pending: gangApps.filter(a => a.status === "pending").length,
+    accepted: gangApps.filter(a => a.status === "accepted").length,
+    rejected: gangApps.filter(a => a.status === "rejected").length,
+  };
+
   const TABS: { key: OwnerTab; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { key: "roles",    label: "Roles",             icon: <UserCog size={15} /> },
-    { key: "staff",    label: "Staff Apps",         icon: <Shield size={15} />, badge: staffStats.pending },
-    { key: "logs",     label: "Activity",           icon: <Clock size={15} /> },
-    { key: "settings", label: "Settings",           icon: <Settings size={15} /> },
+    { key: "roles",    label: "Roles",      icon: <UserCog size={15} /> },
+    { key: "gang",     label: "Gang Apps",  icon: <Users size={15} />,  badge: gangStats.pending },
+    { key: "staff",    label: "Staff Apps", icon: <Shield size={15} />, badge: staffStats.pending },
+    { key: "logs",     label: "Activity",   icon: <Clock size={15} /> },
+    { key: "settings", label: "Settings",   icon: <Settings size={15} /> },
   ];
 
   return (
@@ -376,6 +392,102 @@ const OwnerDashboard = () => {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* ── GANG APPLICATIONS tab ───────────────────────────── */}
+          {tab === "gang" && (
+            <div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                {[["Total", gangStats.total, ""], ["Pending", gangStats.pending, "text-yellow-400"],
+                  ["Accepted", gangStats.accepted, "text-green-400"], ["Rejected", gangStats.rejected, "text-red-400"]]
+                  .map(([l, v, c]) => (
+                    <div key={l as string} className="bg-card border border-border rounded-xl p-5 text-center">
+                      <p className={`font-heading text-3xl font-bold ${c || "text-foreground"}`}>{v as number}</p>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide mt-1">{l}</p>
+                    </div>
+                  ))}
+              </div>
+              <div className="flex items-center gap-2 mb-6 flex-wrap">
+                {(["all", "pending", "accepted", "rejected"] as const).map(f => (
+                  <button key={f} onClick={() => setGangFilter(f)}
+                    className={`px-4 py-1.5 rounded-md font-heading text-xs uppercase tracking-wider transition-all ${
+                      gangFilter === f ? "gradient-red text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
+                    {f}
+                  </button>
+                ))}
+              </div>
+              {loading ? <div className="space-y-3"><Skel /><Skel /><Skel /></div>
+               : gangApps.length === 0 ? (
+                <div className="text-center py-20">
+                  <Users size={40} className="text-muted-foreground mx-auto mb-3 opacity-30" />
+                  <p className="text-muted-foreground">No gang applications{gangFilter !== "all" ? ` with status "${gangFilter}"` : ""}.</p>
+                </div>
+               ) : (
+                <div className="space-y-3">
+                  {gangApps.map(app => {
+                    const isOpen = expanded === app.id;
+                    return (
+                      <div key={app.id} className="bg-card border border-border rounded-xl overflow-hidden">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 cursor-pointer"
+                          onClick={() => setExpanded(isOpen ? null : app.id)}>
+                          <div className="flex items-center gap-4">
+                            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center font-heading text-base font-bold text-white flex-shrink-0">
+                              {app.char_name?.[0]?.toUpperCase() ?? "?"}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-heading font-semibold text-base leading-tight">{app.char_name || "—"}</p>
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <p className="text-sm text-muted-foreground truncate">{app.discord}</p>
+                                <button onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(app.discord ?? ""); toast.success("Copied!"); }}
+                                  className="p-1 rounded text-muted-foreground hover:text-primary transition-colors flex-shrink-0">
+                                  <Copy size={12} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <StatusBadge status={app.status} />
+                            <span className="text-xs text-muted-foreground">{new Date(app.created_at).toLocaleDateString()}</span>
+                            <div className="ml-2 flex gap-1" onClick={e => e.stopPropagation()}>
+                              <button onClick={() => setConfirm({ id: app.id, status: "accepted" })}
+                                disabled={saving || app.status === "accepted"}
+                                className="p-2 rounded-md bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-all disabled:opacity-30" title="Accept">
+                                <Check size={16} />
+                              </button>
+                              <button onClick={() => setConfirm({ id: app.id, status: "rejected" })}
+                                disabled={saving || app.status === "rejected"}
+                                className="p-2 rounded-md bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all disabled:opacity-30" title="Reject">
+                                <X size={16} />
+                              </button>
+                              <button onClick={() => setNotesModal({ id: app.id, notes: app.admin_notes ?? "" })}
+                                className="p-2 rounded-md bg-secondary text-muted-foreground hover:text-foreground transition-all" title="Notes">
+                                <MessageSquare size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        {isOpen && (
+                          <div className="border-t border-border px-5 pb-5 pt-4 space-y-3 animate-in fade-in duration-150">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <Field label="Gang Name"  value={app.gang_name ?? ""} />
+                              <Field label="Gang Color" value={app.gang_color ?? ""} />
+                            </div>
+                            <Field label="Gang Backstory" value={app.backstory ?? ""} />
+                            <Field label="Why Accept"     value={app.traits ?? ""} />
+                            {app.admin_notes && (
+                              <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                                <p className="text-xs text-primary uppercase tracking-wide mb-1 font-medium">Owner Note</p>
+                                <p className="text-sm text-muted-foreground">{app.admin_notes}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
