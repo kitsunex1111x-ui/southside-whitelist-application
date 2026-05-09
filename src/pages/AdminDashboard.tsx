@@ -276,10 +276,6 @@ const AdminDashboard = () => {
                         {typeTab === "whitelist" ? (
                           <>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <Field label="RDM"         value={app.rdm ?? ""} />
-                              <Field label="VDM"         value={app.vdm ?? ""} />
-                              <Field label="MetaGaming"  value={app.metagaming ?? ""} />
-                              <Field label="PowerGaming" value={app.powergaming ?? ""} />
                             </div>
                             <Field label="Backstory" value={app.backstory ?? ""} />
                             <Field label="Character Traits" value={app.traits ?? ""} />
@@ -287,10 +283,8 @@ const AdminDashboard = () => {
                         ) : (
                           <>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <Field label="Gang Type"        value={app.rdm ?? ""} />
-                              <Field label="Territory"        value={app.vdm ?? ""} />
-                              <Field label="Rules Understanding" value={app.metagaming ?? ""} />
-                              <Field label="RP Experience"    value={app.powergaming ?? ""} />
+                              <Field label="Gang Name"        value={app.gang_name ?? ""} />
+                              <Field label="Gang Color"        value={app.gang_color ?? ""} />
                             </div>
                             <Field label="Members" value={app.char_name ?? ""} />
                             <Field label="Gang Backstory" value={app.backstory ?? ""} />
