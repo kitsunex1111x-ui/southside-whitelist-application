@@ -269,10 +269,11 @@ const AdminDashboard = () => {
                     {isOpen && (
                       <div className="border-t border-border px-5 pb-5 pt-4 space-y-4 animate-in fade-in duration-150">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <Field label="Character Name" value={app.char_name ?? ""} />
-                          <Field label="Real Name"      value={app.real_name ?? ""} />
-                          <Field label="Discord"        value={app.discord ?? ""} />
-                          <Field label="Age"            value={String(app.age ?? "—")} />
+                          <Field label="Character Name"    value={app.char_name ?? ""} />
+                          <Field label="Real Name"         value={app.real_name ?? ""} />
+                          <Field label="Discord (Account)" value={app.discord ?? ""} />
+                          <Field label="Discord Username"  value={app.rdm ?? ""} />
+                          <Field label="Age"               value={String(app.age ?? "—")} />
                         </div>
                         <Field label="Backstory"        value={app.backstory ?? ""} />
                         <Field label="Character Traits" value={app.traits ?? ""} />
