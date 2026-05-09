@@ -83,7 +83,7 @@ const GangApplication = () => {
         real_name:  data.gangName,
         discord:    data.leaderDiscord,
         age:        parseInt(data.memberCount, 10) || 1,
-        rdm:        data.gangColor,
+        rdm:        "N/A",
         vdm:        "N/A",
         metagaming: "N/A",
         powergaming: data.experience,
