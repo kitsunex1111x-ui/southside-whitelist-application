@@ -28,7 +28,7 @@ const Auth = () => {
       const redirectTo = `${window.location.origin}/auth/callback`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "discord",
-        options: { redirectTo },
+        options: { redirectTo, scopes: "identify email" },
       });
       if (error) {
         toast.error(error.message);
