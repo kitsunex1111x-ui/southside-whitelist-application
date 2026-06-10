@@ -156,7 +156,7 @@ const OwnerDashboard = () => {
   const addRole = async () => {
     const did = newDiscordId.trim();
     if (!did) return toast.error("Enter a Discord ID");
-    if (!/^\d{17,19}$/.test(did)) return toast.error("Discord ID must be 17–19 digits");
+    if (!/^\d{17,22}$/.test(did)) return toast.error("Discord ID must be 17–22 digits");
     setAdding(true);
 
     try {
@@ -470,11 +470,15 @@ const OwnerDashboard = () => {
                         {isOpen && (
                           <div className="border-t border-border px-5 pb-5 pt-4 space-y-3 animate-in fade-in duration-150">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <Field label="Gang Name"  value={app.gang_name ?? ""} />
-                              <Field label="Gang Color" value={app.gang_color ?? ""} />
+                              <Field label="Gang Name"     value={app.real_name ?? ""} />
+                              <Field label="Gang Color"    value={app.metagaming ?? ""} />
+                              <Field label="Member Count"  value={String(app.age ?? "—")} />
+                              <Field label="Leader Discord" value={app.discord ?? ""} />
                             </div>
-                            <Field label="Gang Backstory" value={app.backstory ?? ""} />
-                            <Field label="Why Accept"     value={app.traits ?? ""} />
+                            <Field label="Members List"   value={app.char_name ?? ""} />
+                            <Field label="Gang Backstory"  value={app.backstory ?? ""} />
+                            <Field label="RP Experience"   value={app.powergaming ?? ""} />
+                            <Field label="Why Accept"      value={app.traits ?? ""} />
                             {app.admin_notes && (
                               <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
                                 <p className="text-xs text-primary uppercase tracking-wide mb-1 font-medium">Owner Note</p>
@@ -569,24 +573,25 @@ const OwnerDashboard = () => {
                             </div>
                           </div>
                         </div>
-                        {/* expanded */}
                         {isOpen && (
                           <div className="border-t border-border px-5 pb-5 pt-4 space-y-3 animate-in fade-in duration-150">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <Field label="Position Applying"   value={
-                                app.rdm === "support" ? "Support Staff"
-                                : app.rdm === "trial" ? "Trial Staff"
-                                : app.rdm === "whitelister" ? "Whitelister"
-                                : app.rdm === "administrator" ? "Administrator"
-                                : app.rdm === "headadmin" ? "Head Admin"
-                                : app.rdm ?? ""} />
-                              <Field label="Weekly Availability" value={app.metagaming ?? ""} />
-                              <Field label="Staff Experience"   value={app.powergaming ?? ""} />
+                              <Field label="Position Applying" value={
+                                app.char_name === "support"       ? "Support Staff"
+                                : app.char_name === "trial"       ? "Trial Staff"
+                                : app.char_name === "whitelister" ? "Whitelister"
+                                : app.char_name === "administrator"? "Administrator"
+                                : app.char_name === "headadmin"   ? "Head Admin"
+                                : app.char_name ?? ""} />
                               <Field label="Age"                value={String(app.age ?? "—")} />
+                              <Field label="Weekly Availability" value={app.rdm ?? ""} />
+                              <Field label="Discord"            value={app.discord ?? ""} />
                             </div>
-                            <Field label="Strengths"         value={app.char_name ?? ""} />
-                            <Field label="Why They Want Staff" value={app.backstory ?? ""} />
-                            <Field label="Scenario Answers"  value={app.traits ?? ""} />
+                            <Field label="Staff Experience"    value={app.backstory ?? ""} />
+                            <Field label="Strengths"           value={app.traits ?? ""} />
+                            <Field label="Why They Want Staff" value={app.metagaming ?? ""} />
+                            <Field label="Weaknesses"          value={app.powergaming ?? ""} />
+                            <Field label="Scenario Answers"    value={app.vdm ?? ""} />
                             {app.admin_notes && (
                               <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
                                 <p className="text-xs text-primary uppercase tracking-wide mb-1 font-medium">Owner Note</p>
