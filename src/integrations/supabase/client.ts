@@ -158,7 +158,7 @@ export async function rawUpdate(
   body: Record<string, any>
 ): RawResult<any> {
   try {
-    const authHeader = getAuthHeader();
+    const authHeader = await getAuthHeaderFromSession();
     const qs = new URLSearchParams(filter).toString();
     const url = `${SUPABASE_URL}/rest/v1/${table}?${qs}`;
 
@@ -218,7 +218,9 @@ export async function rawRpc<T = any>(
   params: Record<string, any> = {}
 ): RawResult<T> {
   try {
-    const authHeader = getAuthHeader();
+    // Always use fresh session token for RPCs — stale localStorage token
+    // causes auth.uid() to return null inside SECURITY DEFINER functions
+    const authHeader = await getAuthHeaderFromSession();
     const url = `${SUPABASE_URL}/rest/v1/rpc/${fn}`;
     const res = await fetch(url, {
       method: "POST",
