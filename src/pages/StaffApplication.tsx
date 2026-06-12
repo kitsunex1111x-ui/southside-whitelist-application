@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { rawInsert, rawSelect } from "@/integrations/supabase/client";
+import { rawInsert, rawInsertWithAuth, getAuthHeaderFromSession, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/integrations/supabase/client";
 import { ArrowLeft, Check, Loader2, Shield, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
@@ -31,7 +31,6 @@ const positions = [
   { value: "trial",         label: "Trial Staff — Probation period, learning the role" },
   { value: "whitelister",   label: "Whitelister — Review & process whitelist applications" },
   { value: "administrator", label: "Administrator — Solve player reports, manage in-game situations" },
-  { value: "headadmin",     label: "Head Admin — Lead the staff team & oversee all operations" },
 ];
 
 const StaffApplication = () => {
@@ -39,6 +38,20 @@ const StaffApplication = () => {
   const [data, setData] = useState<StaffFormData>(initialData);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  // Auto-fill Discord username from OAuth — same as Apply.tsx
+  useEffect(() => {
+    if (!user) return;
+    const discordId = user.user_metadata?.provider_id || user.user_metadata?.sub || "";
+    const discordUsername =
+      user.user_metadata?.custom_claims?.global_name ||
+      user.user_metadata?.name ||
+      user.user_metadata?.full_name || "";
+    const discordValue = discordUsername && discordId
+      ? `${discordUsername} (${discordId})`
+      : discordUsername || discordId;
+    if (discordValue) setData(prev => ({ ...prev, discord: discordValue }));
+  }, [user]);
 
   const update = (field: keyof StaffFormData, value: string) => {
     setData(prev => ({ ...prev, [field]: value }));
@@ -67,11 +80,15 @@ const StaffApplication = () => {
     if (!user) { toast.error("Please login first"); return; }
     setSubmitting(true);
     try {
-      const { data: prev } = await rawSelect<{ id: string; status: string; updated_at: string }[]>(
-        "applications",
-        { user_id: `eq.${user.id}`, type: "eq.staff", select: "id,status,updated_at", order: "created_at.desc", limit: "1" }
+      // Use session token so RLS allows reading own applications
+      const authHeader = await getAuthHeaderFromSession();
+      const checkRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/applications?user_id=eq.${user.id}&type=eq.staff&select=id,status,updated_at&order=created_at.desc&limit=1`,
+        { headers: { apikey: SUPABASE_ANON_KEY, Authorization: authHeader, Accept: "application/json" } }
       );
-      const last = Array.isArray(prev) ? prev[0] : null;
+      const prevList = checkRes.ok ? await checkRes.json() : [];
+      const last = Array.isArray(prevList) ? prevList[0] : null;
+
       if (last) {
         if (last.status === "accepted") {
           toast.error("Your staff application was already accepted!"); setSubmitting(false); return;
@@ -84,32 +101,46 @@ const StaffApplication = () => {
           const cooldownMs = 12 * 60 * 60 * 1000;
           if (elapsed < cooldownMs) {
             const rem = Math.ceil((cooldownMs - elapsed) / 3600000);
-            toast.error(`Rejected. Re-apply in ${rem} hour${rem === 1 ? "" : "s"}.`, { duration: 5000 }); setSubmitting(false); return;
+            toast.error(`Rejected. Re-apply in ${rem} hour${rem === 1 ? "" : "s"}.`, { duration: 5000 });
+            setSubmitting(false); return;
           }
         }
       }
 
-      const { error } = await rawInsert("applications", {
-        user_id:     user.id,
-        type:        "staff",
-        real_name:   data.realName,
-        discord:     data.discord,
-        age:         parseInt(data.age, 10) || 16,
-        experience:  data.experience,
-        availability: data.availability,
-        whyStaff:    data.whyStaff,
-        scenarios:   data.scenarios,
-        strengths:   data.strengths,
-        weaknesses:  data.weaknesses,
-        status:      "pending",
+      const { error } = await rawInsertWithAuth("applications", {
+        user_id:      user.id,
+        type:         "staff",
+        char_name:    data.position,       // position applying for
+        real_name:    data.realName,
+        discord:      data.discord,
+        age:          parseInt(data.age, 10) || 16,
+        backstory:    data.experience,     // staff experience
+        traits:       data.strengths,      // strengths
+        metagaming:   data.whyStaff,       // why want to be staff
+        powergaming:  data.weaknesses,     // weaknesses
+        rdm:          data.availability,   // availability
+        vdm:          data.scenarios,      // scenario answers
+        status:       "pending",
       });
       if (error) {
-        toast.error(error.message.includes("23505")
-          ? "You already have a pending application!"
-          : "Failed to submit: " + error.message);
+        const msg = error.message?.toLowerCase() || "";
+        const code = (error as any).code || "";
+        if (
+          code === "23505" ||
+          msg.includes("23505") ||
+          msg.includes("conflict") ||
+          msg.includes("duplicate") ||
+          msg.includes("unique") ||
+          msg.includes("409")
+        ) {
+          toast.error("You already have a pending staff application. Check your Dashboard.");
+        } else {
+          toast.error("Failed to submit: " + error.message);
+          console.error("[StaffApp] Insert error:", error);
+        }
       } else {
         setSubmitted(true);
-        toast.success("Staff application submitted!");
+        toast.success("Staff application submitted successfully!");
       }
     } catch (e: any) {
       toast.error("Error: " + e.message);
@@ -189,10 +220,14 @@ const StaffApplication = () => {
 
             {/* Discord */}
             <div>
-              <label className="block text-sm font-medium mb-2">Discord ID *</label>
+              <label className="block text-sm font-medium mb-2">Discord *</label>
               <input type="text" value={data.discord} onChange={e => update("discord", e.target.value)}
-                placeholder="username#0000"
-                className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all" />
+                placeholder="Login with Discord to auto-fill"
+                readOnly={!!(user?.user_metadata?.provider_id || user?.user_metadata?.name)}
+                className="w-full bg-secondary border border-border rounded-lg px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all read-only:opacity-70 read-only:cursor-not-allowed" />
+              {data.discord && (
+                <p className="text-xs text-green-400 mt-1">✅ Auto-filled from your Discord account</p>
+              )}
             </div>
 
             {/* Availability */}
