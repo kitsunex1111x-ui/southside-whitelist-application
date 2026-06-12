@@ -63,7 +63,7 @@ export async function rawSelect<T = any>(
   options: { single?: boolean } = {}
 ): RawResult<T> {
   try {
-    const authHeader = getAuthHeader();
+    const authHeader = await getAuthHeaderFromSession();
     const qs = new URLSearchParams(params).toString();
     const url = `${SUPABASE_URL}/rest/v1/${table}${qs ? "?" + qs : ""}`;
 
@@ -94,7 +94,7 @@ export async function rawInsert<T = any>(
   body: Record<string, any>
 ): RawResult<T> {
   try {
-    const authHeader = getAuthHeader();
+    const authHeader = await getAuthHeaderFromSession();
     const url = `${SUPABASE_URL}/rest/v1/${table}`;
 
     const res = await fetch(url, {
@@ -190,7 +190,7 @@ export async function rawDelete(
   filter: Record<string, string>
 ): RawResult<any> {
   try {
-    const authHeader = getAuthHeader();
+    const authHeader = await getAuthHeaderFromSession();
     const qs = new URLSearchParams(filter).toString();
     const url = `${SUPABASE_URL}/rest/v1/${table}?${qs}`;
     const res = await fetch(url, {

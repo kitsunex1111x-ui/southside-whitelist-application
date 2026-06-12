@@ -160,12 +160,9 @@ const OwnerDashboard = () => {
     setAdding(true);
 
     try {
-      // Step 1: look up user by Discord ID
-      console.log("[addRole] Looking up Discord ID:", did);
       const { data: found, error: rpcErr } = await rawRpc<{ user_id: string; email: string; discord_name: string }[]>(
         "get_user_id_by_discord", { p_discord_id: did }
       );
-      console.log("[addRole] lookup result:", found, "error:", rpcErr);
 
       if (rpcErr) {
         toast.error("Lookup failed: " + rpcErr.message);
@@ -174,7 +171,6 @@ const OwnerDashboard = () => {
       }
 
       const userRow = Array.isArray(found) ? found[0] : null;
-      console.log("[addRole] userRow:", userRow);
 
       if (!userRow?.user_id) {
         toast.error("This Discord ID hasn't signed into the site yet. They need to log in at least once first.", { duration: 6000 });
@@ -182,13 +178,10 @@ const OwnerDashboard = () => {
         return;
       }
 
-      // Step 2: assign role
-      console.log("[addRole] Assigning role:", newRole, "to:", userRow.user_id);
       const { data: assignResult, error: assignErr } = await rawRpc(
         "assign_user_role",
         { p_target_user_id: userRow.user_id, p_role: newRole }
       );
-      console.log("[addRole] assign result:", assignResult, "error:", assignErr);
 
       const assignError = assignErr || ((assignResult as any)?.error ? { message: (assignResult as any).error } : null);
 
@@ -204,7 +197,6 @@ const OwnerDashboard = () => {
         fetchData(true);
       }
     } catch (e: any) {
-      console.error("[addRole] exception:", e);
       toast.error("Unexpected error: " + e.message);
     }
     setAdding(false);
